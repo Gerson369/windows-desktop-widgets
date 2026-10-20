@@ -1,0 +1,47 @@
+# Publish only reviewed source and public documentation.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/electron.vite.config.ts
+!/create-runtime-package.cjs
+!/package-prepackaged-release.ps1
+!/src/
+!/native/
+!/resources/
+!/tests/
+!/scripts/
+!/docs/
+/docs/*
+!/docs/images/
+
+# Generated binaries, local state and credentials are never source assets.
+**/node_modules/
+**/bin/
+**/obj/
+**/*.exe
+**/*.dll
+**/*.zip
+**/*.log
+**/*.pdb
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*-e2e-data/
+
+# Unused alternative native implementation; the release builds LegacyProgram.cs.
+/native/DesktopLayoutBridge/Program.cs
+/native/DesktopLayoutBridge/DesktopLayoutBridge.csproj
+
+# Keep the current reproducible integration checks; older local runners stay private.
+/scripts/*
+!/scripts/build-native.ps1
+!/scripts/cdp-check-client.mjs
+!/scripts/compact-assistant-host.cjs
+!/scripts/verify-assistant-overview.mjs
+!/scripts/verify-health-overdue.mjs
+!/scripts/verify-wellness-footer.mjs

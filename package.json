@@ -1,0 +1,134 @@
+{
+  "name": "gerson-desktop-toolbox",
+  "version": "2.4.0",
+  "description": "Windows 桌面收纳助手：原生桌面挂接、自动分类、拖动吸附和待办",
+  "main": "out/main/index.js",
+  "author": "Gerson",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "node --test tests/q01-contract.test.cjs tests/focused-assistant.test.cjs tests/widget-suite.test.cjs tests/desktop-recovery.test.cjs tests/settings.test.cjs",
+    "pack": "npm run dist:windows",
+    "dist": "npm run dist:windows",
+    "dist:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File package-prepackaged-release.ps1",
+    "postinstall": "electron-builder install-app-deps",
+    "build:native": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1"
+  },
+  "dependencies": {
+    "@vueuse/core": "^12.0.0",
+    "dayjs": "^1.11.13",
+    "ical.js": "^2.2.1",
+    "jsqr": "^1.4.0",
+    "lowdb": "^1.0.0",
+    "qrcode": "^1.5.4",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/node": "^22.10.1",
+    "@types/qrcode": "^1.5.6",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.2.0"
+  },
+  "build": {
+    "appId": "com.gerson.desktoptoolbox",
+    "productName": "Gerson 桌面助手",
+    "directories": {
+      "buildResources": "resources",
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "native/DesktopHostBridge/GersonDesktopHostBridge.exe",
+        "to": "native/GersonDesktopHostBridge.exe"
+      },
+      {
+        "from": "native/DesktopLayoutBridge/GersonDesktopLayoutBridge.exe",
+        "to": "native/GersonDesktopLayoutBridge.exe"
+      },
+      {
+        "from": "resources/tray-icon.png",
+        "to": "tray-icon.png"
+      }
+    ],
+    "win": {
+      "executableName": "GersonToolbox",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gerson 桌面工具箱"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gerson369/windows-desktop-widgets.git"
+  },
+  "homepage": "https://github.com/Gerson369/windows-desktop-widgets",
+  "bugs": {
+    "url": "https://github.com/Gerson369/windows-desktop-widgets/issues"
+  },
+  "keywords": [
+    "windows",
+    "desktop-widgets",
+    "desktop-organizer",
+    "todo",
+    "weather",
+    "electron",
+    "vue",
+    "桌面小组件",
+    "桌面收纳"
+  ]
+}
