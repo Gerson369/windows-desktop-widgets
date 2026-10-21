@@ -654,7 +654,7 @@ const createTray = (): void => {
   const fallbackIcon = nativeImage.createFromDataURL('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI5IiBmaWxsPSIjNTc3N0Q4Ii8+PHRleHQgeD0iMTYiIHk9IjIyIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXdlaWdodD0iNzAwIiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5HPC90ZXh0Pjwvc3ZnPg==')
   const trayIcon = preferredIcon.isEmpty() ? fallbackIcon : preferredIcon.resize({ width: 32, height: 32 })
   tray = new Tray(trayIcon)
-  tray.setToolTip('Gerson 桌面助手')
+  tray.setToolTip('桌面搭子')
   const updateMenu = (): void => {
     tray?.setContextMenu(Menu.buildFromTemplate([
       { label: '显示桌面小组件', click: () => { void showDesktopWidgets() } },
@@ -1738,12 +1738,12 @@ const registerIpc = (): void => {
     return result.canceled ? [] : result.filePaths
   })
   ipcMain.handle('config:export', async (event) => {
-    const result = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender) || mainWindow!, { title: '导出工具箱配置', defaultPath: 'gerson-toolbox-config.json', filters: [{ name: 'JSON 配置', extensions: ['json'] }] })
+    const result = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender) || mainWindow!, { title: '导出桌面搭子配置', defaultPath: 'gerson-toolbox-config.json', filters: [{ name: 'JSON 配置', extensions: ['json'] }] })
     if (!result.canceled && result.filePath) await store.exportTo(result.filePath)
     return result.filePath || null
   })
   ipcMain.handle('config:import', async (event) => {
-    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender) || mainWindow!, { title: '导入工具箱配置', properties: ['openFile'], filters: [{ name: 'JSON 配置', extensions: ['json'] }] })
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender) || mainWindow!, { title: '导入桌面搭子配置', properties: ['openFile'], filters: [{ name: 'JSON 配置', extensions: ['json'] }] })
     if (result.canceled || !result.filePaths[0]) return null
     await releaseDesktop()
     const data = await store.importFrom(result.filePaths[0])

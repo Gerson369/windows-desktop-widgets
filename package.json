@@ -1,7 +1,7 @@
 {
   "name": "gerson-desktop-toolbox",
   "version": "2.4.0",
-  "description": "Windows 桌面收纳助手：原生桌面挂接、自动分类、拖动吸附和待办",
+  "description": "桌面搭子：整理桌面、记下待办，到点提醒喝水和活动",
   "main": "out/main/index.js",
   "author": "Gerson",
   "license": "MIT",
@@ -40,7 +40,7 @@
   },
   "build": {
     "appId": "com.gerson.desktoptoolbox",
-    "productName": "Gerson 桌面助手",
+    "productName": "桌面搭子",
     "directories": {
       "buildResources": "resources",
       "output": "release"
@@ -92,7 +92,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Gerson 桌面工具箱"
+      "shortcutName": "桌面搭子"
     },
     "portable": {
       "artifactName": "${productName}-${version}-${arch}-portable.${ext}"

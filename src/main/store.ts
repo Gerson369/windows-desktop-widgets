@@ -155,12 +155,12 @@ export class DataStore {
   }
 
   private createDatabase(filePath: string): LowDbAdapter { return low(new FileSync(filePath)) }
-  get data(): AppData { const data = this.db.getState(); if (!data) throw new Error('工具箱数据尚未初始化。'); return data }
+  get data(): AppData { const data = this.db.getState(); if (!data) throw new Error('桌面搭子数据尚未初始化。'); return data }
   async update(mutator: (data: AppData) => void): Promise<AppData> { const data = this.data; mutator(data); this.db.setState(data); this.db.write(); return data }
   async replace(data: AppData): Promise<AppData> { const normalized = this.normalize(data); this.db.setState(normalized); this.db.write(); return normalized }
   async reset(): Promise<AppData> { return this.replace(defaultData()) }
   async exportTo(destination: string): Promise<void> { this.db.write(); await mkdir(dirname(destination), { recursive: true }); await copyFile(this.filePath, destination) }
-  async importFrom(source: string): Promise<AppData> { let candidate: AppData | undefined; try { candidate = this.createDatabase(source).getState() } catch { throw new Error('所选文件不是有效的桌面工具箱配置文件。') }; if (!candidate || !isRecord(candidate) || !isRecord(candidate.settings) || !Array.isArray(candidate.todos)) throw new Error('所选文件不是有效的桌面工具箱配置文件。'); if(candidate.suite) validateSuite(candidate.suite); await this.exportTo(`${this.filePath}.before-import-${Date.now()}.json`); return this.replace(candidate) }
+  async importFrom(source: string): Promise<AppData> { let candidate: AppData | undefined; try { candidate = this.createDatabase(source).getState() } catch { throw new Error('所选文件不是有效的桌面搭子配置文件。') }; if (!candidate || !isRecord(candidate) || !isRecord(candidate.settings) || !Array.isArray(candidate.todos)) throw new Error('所选文件不是有效的桌面搭子配置文件。'); if(candidate.suite) validateSuite(candidate.suite); await this.exportTo(`${this.filePath}.before-import-${Date.now()}.json`); return this.replace(candidate) }
   async moveDataDirectory(targetDirectory: string): Promise<AppData> {
     await mkdir(targetDirectory, { recursive: true })
     const targetFile = join(targetDirectory, 'toolbox-data.json')

@@ -1,10 +1,12 @@
-# Windows Desktop Widgets · Windows 桌面小组件与收纳助手
+# 桌面搭子 · Windows 桌面收纳与效率助手
 
-Gerson Desktop Widgets 是一个面向 **Windows 10 / 11 x64** 的桌面整理和效率工具，使用 Electron、Vue 3、TypeScript 与 C# 原生桌面桥接。
+**帮你整理桌面、记下待办，到点提醒你喝水、起来动动。**
+
+桌面搭子是一个面向 **Windows 10 / 11 x64** 的桌面整理和效率工具，使用 Electron、Vue 3、TypeScript 与 C# 原生桌面桥接。
 
 **Windows desktop widgets, desktop organizer, todo list, weather, countdown days and wellness reminders.**
 
-[下载最新版 / Download](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [反馈问题 / Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版 / Download](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [反馈问题 / Issues](https://github.com/Gerson369/windows-desktop-widgets/issues) · [X 首发与更新文案](docs/promotion.md)
 
 ## 功能
 
@@ -25,6 +27,8 @@ Gerson Desktop Widgets 是一个面向 **Windows 10 / 11 x64** 的桌面整理�
 
 - `setup.exe`：安装版。
 - `portable.exe`：免安装版。
+
+已发布的 v2.4.0 安装包仍使用旧名称「Gerson 桌面助手」；后续发布采用「桌面搭子」。
 
 更新前从系统托盘退出旧版，再打开新版。请通过托盘退出以便恢复桌面图标；隐藏面板不等于退出程序。未配置代码签名，Windows 可能显示发布者提示。
 

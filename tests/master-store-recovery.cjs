@@ -38,7 +38,7 @@ async function main() {
     const beforeInvalid = JSON.stringify(recovered.data)
     const invalidFile = join(root, 'invalid.json')
     await fs.writeFile(invalidFile, JSON.stringify({ settings: 'bad', todos: {} }), 'utf8')
-    await assert.rejects(() => recovered.importFrom(invalidFile), /有效的桌面工具箱配置文件/)
+    await assert.rejects(() => recovered.importFrom(invalidFile), /有效的桌面搭子配置文件/)
     assert.equal(JSON.stringify(recovered.data), beforeInvalid, '无效导入改变了当前内存数据。')
 
     const fuzzDirectory = join(root, 'fuzz-data')
