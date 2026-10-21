@@ -17,7 +17,6 @@
 !/docs/
 /docs/*
 !/docs/images/
-!/docs/promotion.md
 
 # Generated binaries, local state and credentials are never source assets.
 **/node_modules/
