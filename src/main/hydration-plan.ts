@@ -76,10 +76,12 @@ export function hydrationPlanClock(plan: HydrationPlan, day: HydrationDay, previ
   const next = times.find(time => !current.completedTimes?.includes(time) && boundary(time, now) >= now)
   if (!next) return undefined
   const dueAt = boundary(next, now)
-  const startedAt = Math.min(now, dueAt - 1000)
+  const index=times.indexOf(next)
+  const prior=index>0?boundary(times[index-1],now):boundary(plan.start,now)
+  const startedAt = Math.min(now, dueAt - 1000, Math.max(prior,current.lastCupAt ?? 0))
   return { intervalMinutes: (dueAt - startedAt) / 60_000, startedAt, dueAt, planKey }
 }
 
 export function hydrationPlanCanRecord(plan:Pick<HydrationPlanSnapshot,'enabled'|'status'>):boolean {
-  return !plan.enabled || (plan.status!=='ended' && plan.status!=='complete')
+  return !plan.enabled || plan.status==='active'
 }

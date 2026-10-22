@@ -727,3 +727,19 @@ test('gravity accelerates falling pieces, bounces on the floor and settles witho
   const moved=stepBody({...falling,settled:false},1/60,140,200,.27)
   assert.ok(moved.y>falling.y)
 })
+
+
+test('daily cup progress resumes from schedule or last drink instead of restarting with the app',()=>{
+  const at=(h,m=0,s=0)=>new Date(2026,9,22,h,m,s).getTime()
+  const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true,goalMl:500,times:['09:10','10:00']})
+  const day=hydrationDayAt(undefined,at(9))
+  const resumed=hydrationPlanClock(plan,day,undefined,at(9,5))
+  assert.equal(resumed.startedAt,at(9))
+  assert.equal(reminderVisual(resumed,at(9,5)).percent,50)
+  const drank={...day,consumedMl:250,completedTimes:['09:10'],lastCupAt:at(9,12,30)}
+  const afterRestart=hydrationPlanClock(plan,drank,undefined,at(9,15))
+  assert.equal(afterRestart.startedAt,drank.lastCupAt)
+  assert.equal(afterRestart.dueAt,at(10))
+  assert.equal(reminderVisual(afterRestart,at(9,15)).percent,5)
+  assert.equal(hydrationPlanClock(plan,drank,undefined,at(20)),undefined)
+})

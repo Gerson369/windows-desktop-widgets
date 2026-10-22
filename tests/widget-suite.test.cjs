@@ -93,6 +93,15 @@ test('layout backups include disabled new widgets and project zones without reve
   data.desktopZones.push({id:'project',name:'Project',color:'#aabbcc',opacity:60,visible:true,collapsed:false,locked:false,x:30,y:30,width:320,height:180,itemIds:[],createdAt:'2026-10-19'})
   const backup=captureWidgetLayout(data,'backup','test','2026-10-19T00:00:00Z')
   assert.equal(validWidgetLayout(backup),true)
+  const compact=structuredClone(backup)
+  compact.modules.push({id:'health',x:0,y:0,width:300,height:108,collapsed:false,visible:true,preferredBounds:{x:0,y:0,width:300,height:108}})
+  assert.equal(validWidgetLayout(compact),true)
+  compact.modules.at(-1).height=107
+  assert.equal(validWidgetLayout(compact),false)
+  compact.modules.at(-1).height=108
+  compact.modules.at(-1).id='notes'
+  assert.equal(validWidgetLayout(compact),false)
+
   data.desktopModules[2].visible=true;data.desktopModules[2].displayId=1;data.desktopZones[0].x=999;data.suite.background='#ffffff';data.suite.countdowns=[{id:'keep',title:'keep',date:'2026-10-20'}]
   applyWidgetLayout(data,backup)
   assert.equal(data.desktopModules[2].visible,false)
@@ -200,4 +209,61 @@ test('todo quick dates cross month and year boundaries with readable labels',()=
   assert.equal(todoDateLabel('',now),'日期')
   assert.equal(todoDateLabel('2026-02-30',now),'日期')
   assert.equal(todoDateLabel('2027-02-01',now),'2027年2月1日')
+})
+
+
+test('failed local writes and rejected mutations leave current data intact and permit retry',async()=>{
+  const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os')
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'gerson-save-rollback-'))
+  const {DataStore}=loadTypeScript('src/main/store.ts',{electron:{app:{getPath:()=>directory}}})
+  const store=new DataStore();await store.init(directory)
+  const before=structuredClone(store.data),disk=await fs.readFile(path.join(directory,'toolbox-data.json'),'utf8')
+  const write=store.db.write.bind(store.db)
+  store.db.write=()=>{throw Error('disk full')}
+  await assert.rejects(store.update(data=>{data.settings.hydrationIntervalMinutes=15;data.settings.hydrationPlan.enabled=true}),/disk full/)
+  assert.deepEqual(store.data,before)
+  await assert.rejects(store.replace({...before,todos:[]}),/disk full/)
+  assert.deepEqual(store.data,before)
+  await assert.rejects(store.update(data=>{data.todos=[];throw Error('cancelled')}),/cancelled/)
+  assert.deepEqual(store.data,before)
+  assert.equal(await fs.readFile(path.join(directory,'toolbox-data.json'),'utf8'),disk)
+  store.db.write=write
+  await store.update(data=>{data.settings.hydrationIntervalMinutes=15})
+  assert.equal(store.data.settings.hydrationIntervalMinutes,15)
+  assert.equal(JSON.parse(await fs.readFile(path.join(directory,'toolbox-data.json'),'utf8')).settings.hydrationIntervalMinutes,15)
+})
+
+test('organization commits assignments to the latest data after a concurrent save',async(t)=>{
+  const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),ts=require('typescript'),vm=require('node:vm')
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'gerson-organizer-race-'))
+  t.after(async()=>{assert.equal(path.dirname(directory),path.resolve(os.tmpdir()));await fs.rm(directory,{recursive:true,force:true})})
+  const {DataStore}=loadTypeScript('src/main/store.ts',{electron:{app:{getPath:()=>directory}}})
+  const store=new DataStore();await store.init(directory)
+  await store.update(data=>{data.desktopZones.push({id:'zone',name:'Project',itemIds:[]})})
+  let finishMove,enteredMove
+  const moving=new Promise(resolve=>{enteredMove=resolve})
+  const desktop=path.join(directory,'Desktop')
+  const organizer=loadTypeScript('src/main/organizer-services.ts',{
+    electron:{app:{getPath:()=>desktop}},
+    'node:fs':{promises:{lstat:async()=>({isSymbolicLink:()=>false}),access:async()=>{throw Error('missing')},mkdir:async()=>{},rename:()=>new Promise(resolve=>{finishMove=resolve;enteredMove()})}}
+  })
+  const plan={desktopPath:desktop,items:[
+    {sourcePath:path.join(desktop,'move.txt'),targetPath:path.join(desktop,'archive','move.txt'),action:'move',status:'planned'},
+    {sourcePath:path.join(desktop,'assign.txt'),zoneId:'zone',action:'assign',status:'planned'}
+  ]}
+  const mainSource=await fs.readFile('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',mainSource,ts.ScriptTarget.Latest,true)
+  function findHandler(node){if(ts.isCallExpression(node) && node.expression.getText(ast)==='ipcMain.handle' && node.arguments[0]?.text==='organizer:executeOrganization')return node.arguments[1];return ts.forEachChild(node,findHandler)}
+  const context={module:{exports:null},store,...organizer,structuredClone,PREVIEW_CONFIRMATION_TTL_MS:60000,pendingOrganizerPreviews:new Map([[1,{plan,createdAt:Date.now()}]]),broadcastData:()=>{}}
+  vm.runInNewContext(ts.transpileModule(`module.exports=${findHandler(ast).getText(ast)}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
+  const pending=context.module.exports({sender:{id:1}},true)
+  await moving
+  await store.update(data=>{data.settings.hydrationIntervalMinutes=15})
+  finishMove();await pending
+  assert.equal(store.data.settings.hydrationIntervalMinutes,15)
+  assert.equal(store.data.desktopAssignments[plan.items[1].sourcePath],'zone')
+  assert.deepEqual(store.data.desktopZones[0].itemIds,[plan.items[1].sourcePath])
+  assert.equal(store.data.fileOperations[0].items[1].status,'completed')
+  const saved=JSON.parse(await fs.readFile(path.join(directory,'toolbox-data.json'),'utf8'))
+  assert.equal(saved.settings.hydrationIntervalMinutes,15)
+  assert.equal(saved.desktopAssignments[plan.items[1].sourcePath],'zone')
 })

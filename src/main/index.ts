@@ -14,7 +14,8 @@ import { createId, defaultData, type AppData, type AppSettings, type DesktopIcon
 import { store } from './store'
 import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInventory, desktopCoverageProblems, migrateDesktopCollection, placeStartupWidgets } from './desktop-widgets'
 import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea } from './widget-snap'
-import { normalizeCollectionSorts, normalizeCollectionRules } from './desktop-collection'
+import { dockedWidgetBounds, findWidgetDock, fitDockedParent } from './widget-docking'
+import { normalizeCollectionSorts, normalizeCollectionRules, type CollectionProgress } from './desktop-collection'
 import { dueTodoReminders, validateTodoReminder } from './todo-reminders'
 import { renameCollectedFile } from './file-rename'
 import { classifyDesktopItem } from './desktop-categories'
@@ -27,7 +28,7 @@ import { promisify } from 'node:util'
 import { normalizeReminderSettings, tickReminders, respondToReminder, resumeReminderClocks, type ReminderKind, type ReminderState, type WellnessSnapshot, type ReminderSettings } from './wellness-reminders'
 import { applyBackup, createCategoryLayoutPlan, getDesktopStatus, readDesktopLayout, refreshNativeDesktopIcons, setDesktopSpacing, snapDesktopToGrid, snapSelectedDesktopIconsToEdge, toBackup } from './desktop-layout'
 import { captureDisplay, captureFullScreen, captureWindowList, copyImageDataUrl, inspectSearchBackend, openPath, refreshIconCache, revealPath, searchFiles, setWindowsDesktopIconsHidden, watchDirectory } from './system-services'
-import { desktopRoot, executeBatchRename, executeOrganization, previewBatchRename, previewOrganization, recentDesktopFiles, revertOperation, scanDesktop } from './organizer-services'
+import { assignOrganizationItem, desktopRoot, executeBatchRename, executeOrganization, previewBatchRename, previewOrganization, recentDesktopFiles, revertOperation, scanDesktop } from './organizer-services'
 
 let widgetsTemporarilyHidden = false
 let mainWindow: BrowserWindow | null = null
@@ -55,6 +56,8 @@ let quitting = false
 let desktopReleasePending = false
 let desktopReleased = false
 let collectionBusy = false
+let collectionTask: Promise<AppData> | null = null
+let collectionProgress: CollectionProgress = {busy:false,message:'',failed:false}
 let startupCollectionCancelled = false
 let desktopRecoveryTimer: NodeJS.Timeout | null = null
 let shellDesktopItems: ShellDesktopItem[] = []
@@ -253,29 +256,51 @@ const hideQuickSearchWindow = (): void => {
   }
 }
 
-const desktopModuleBounds = (module: DesktopModule): Electron.Rectangle => ({
+const desktopModuleBounds = (module: DesktopModule): Electron.Rectangle => {
+  const raw = {
   x: Math.round(module.x),
   y: Math.round(module.y),
   width: Math.max(240, Math.round(module.width)),
-  height: module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : Math.max(120, Math.round(module.height))
-})
+  height: module.kind!=='health' && module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : Math.max(module.kind==='health' ? 108 : 120, Math.round(module.height))
+  }
+  if(module.kind==='health' && module.dock){
+    const parent=store.data.desktopModules.find(item=>item.id===module.dock!.parentId)
+    if(parent)return dockedWidgetBounds(raw,module.dock,desktopModuleBounds(parent))
+  }
+  const health=store.data.desktopModules.find(item=>item.kind==='health' && item.visible && item.dock?.parentId===module.id)
+  return health?.dock ? fitDockedParent(raw,health,health.dock,screen.getDisplayMatching(raw).workArea) : raw
+}
+
+const followDockedHealth = (parentId: string, bounds: Electron.Rectangle): void => {
+  const health=store.data.desktopModules.find(item=>item.kind==='health' && item.dock?.parentId===parentId)
+  const window=health && desktopModuleWindows.get(health.id)
+  if(!health?.dock || !window || window.isDestroyed() || isDesktopWidgetInteracting(health.id))return
+  applyingDesktopModuleBounds.add(health.id)
+  try{window.setBounds(dockedWidgetBounds(window.getBounds(),health.dock,bounds))}finally{applyingDesktopModuleBounds.delete(health.id)}
+}
 
 const snapDesktopModuleBounds = (movingId: string, raw: Electron.Rectangle, resizing = false): Electron.Rectangle => {
-  if (store.data.settings.snapMode === 'none') return raw
   const display = screen.getDisplayNearestPoint({ x: raw.x + Math.round(raw.width / 2), y: raw.y + Math.round(raw.height / 2) }).workArea
   const neighbors = [...desktopModuleWindows, ...desktopZoneWindows]
     .filter(([id, window]) => id !== movingId && !window.isDestroyed() && window.isVisible())
+    .filter(([id])=> !(id==='health' && store.data.desktopModules.find(item=>item.id==='health')?.dock?.parentId===movingId))
     .map(([, window]) => window.getBounds())
-  return (resizing ? snapResizedWidgetBounds : snapWidgetBounds)(raw, display, neighbors, store.data.settings.desktopSnapDistance)
+  const snapped=store.data.settings.snapMode === 'none' ? raw : (resizing ? snapResizedWidgetBounds : snapWidgetBounds)(raw, display, neighbors, store.data.settings.desktopSnapDistance)
+  const health=store.data.desktopModules.find(item=>item.kind==='health' && item.visible && item.dock?.parentId===movingId)
+  return health?.dock ? fitDockedParent(snapped,health,health.dock,display) : snapped
 }
 
 const bindDesktopWidgetMovement = (id: string, window: BrowserWindow, applying: Set<string>, persist: () => void): void => {
+  window.on('move',()=>{if(!window.isDestroyed())followDockedHealth(id,window.getBounds())})
+  window.on('resize',()=>{if(!window.isDestroyed())followDockedHealth(id,window.getBounds())})
   window.on('will-resize', (event, raw, details) => {
     if (applying.has(id)) return
     resizingDesktopWidgets.add(id)
-    if (!details.edge.startsWith('bottom')) return
+    const dockedHealth=store.data.desktopModules.some(module=>module.kind==='health' && module.visible && module.dock?.parentId===id)
+    if (!details.edge.startsWith('bottom') && !dockedHealth) return
     const snapped = snapDesktopModuleBounds(id, raw, true)
-    if (snapped.height === raw.height || snapped.height < window.getMinimumSize()[1]) return
+    const [minimumWidth, minimumHeight] = window.getMinimumSize()
+    if ((snapped.x === raw.x && snapped.y === raw.y && snapped.width === raw.width && snapped.height === raw.height) || snapped.width < minimumWidth || snapped.height < minimumHeight) return
     event.preventDefault()
     applying.add(id)
     try { window.setBounds(snapped) } finally { applying.delete(id) }
@@ -289,7 +314,7 @@ const bindDesktopWidgetMovement = (id: string, window: BrowserWindow, applying: 
     if (!draggingDesktopWidgets.delete(id)) return
     const raw = window.getBounds()
     const snapped = snapDesktopModuleBounds(id, raw)
-    if (snapped.x !== raw.x || snapped.y !== raw.y) {
+    if (snapped.x !== raw.x || snapped.y !== raw.y || snapped.width !== raw.width || snapped.height !== raw.height) {
       applying.add(id)
       window.setBounds(snapped)
       applying.delete(id)
@@ -320,6 +345,10 @@ const persistDesktopModuleBounds = (id: string, window: BrowserWindow): void => 
         target.height = bounds.height
       }
       target.preferredBounds={x:target.x,y:target.y,width:target.width,height:target.height}
+      if(id==='health')target.dock=findWidgetDock(bounds,[...desktopModuleWindows].filter(([parentId,parent])=>['quick','todos'].includes(parentId) && !parent.isDestroyed() && parent.isVisible()).map(([parentId,parent])=>({id:parentId,bounds:parent.getBounds()})))
+      const health=data.desktopModules.find(item=>item.kind==='health' && item.dock?.parentId===id)
+      const child=health && desktopModuleWindows.get(health.id)
+      if(health && child && !child.isDestroyed())Object.assign(health,child.getBounds(),{preferredBounds:child.getBounds()})
     }).then(broadcastData)
   }, 180)
   desktopModuleBoundsTimers.set(id, timer)
@@ -340,7 +369,7 @@ const refreshDesktopModules = async (): Promise<void> => {
         transparent: true,
         backgroundColor: '#00000000',
         hasShadow: false,
-        resizable: !module.collapsed,
+        resizable: module.kind!=='health' && !module.collapsed,
         minWidth: 300,
         minHeight: 42,
         skipTaskbar: true,
@@ -368,9 +397,9 @@ const refreshDesktopModules = async (): Promise<void> => {
       await loadRenderer(window, { desktopModule: module.id })
     }
     applyingDesktopModuleBounds.add(module.id)
-    window.setMinimumSize(300, module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : module.kind === 'quick' ? 280 : 160)
+    window.setMinimumSize(300, module.kind==='health' ? 108 : module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : module.kind === 'quick' ? 280 : 160)
     if (!isDesktopWidgetInteracting(module.id)) window.setBounds(desktopModuleBounds(module))
-    window.setResizable(!module.collapsed)
+    window.setResizable(module.kind!=='health' && !module.collapsed)
     applyingDesktopModuleBounds.delete(module.id)
     if (module.visible && !widgetsTemporarilyHidden) { if(window.isMinimized()) window.restore(); window.showInactive() }
     else window.hide()
@@ -751,6 +780,7 @@ const stopDesktopCollection = async (showOriginalIcons = true): Promise<AppData>
   await releaseDesktop()
   const data = await store.update(draft => { draft.settings.desktopCollected = false })
   broadcastData()
+  if(showOriginalIcons)setCollectionProgress(false,'原桌面已显示，图标位置保持不变')
   return data
 }
 
@@ -780,11 +810,20 @@ const refreshDesktopGroups = async (): Promise<AppData> => {
   return data
 }
 
-const startDesktopCollection = async (): Promise<AppData> => {
-  if (collectionBusy) throw new Error('正在收纳桌面，请稍候。')
+const setCollectionProgress = (busy: boolean, message: string, failed = false): void => {
+  collectionProgress = {busy,message,failed}
+  for(const window of [mainWindow,...desktopModuleWindows.values()]) if(window && !window.isDestroyed()) window.webContents.send('desktop:progressChanged',collectionProgress)
+}
+const startDesktopCollection = (): Promise<AppData> => {
+  if(collectionTask)return collectionTask
+  collectionTask=collectDesktopOnce().finally(()=>{collectionTask=null})
+  return collectionTask
+}
+const collectDesktopOnce = async (): Promise<AppData> => {
   if (process.platform !== 'win32') throw new Error('桌面收纳目前仅支持 Windows。')
   collectionBusy = true
   startupCollectionCancelled = false
+  setCollectionProgress(true,'正在读取桌面…')
   try {
     let layout = await readDesktopLayout()
     if (!canReuseDesktopInventory(layout.entries, shellDesktopItems, store.data.desktopItems) || !await isDesktopInventoryCurrent(shellDesktopItems)) {
@@ -798,16 +837,19 @@ const startDesktopCollection = async (): Promise<AppData> => {
     if (!store.data.settings.desktopModeEnabled || !store.data.desktopModules.find(module => module.id === 'quick')?.visible || !collectionWindows().length) await showDesktopWidgets()
     if (desktopCoverageProblems(store.data).length) throw new Error('分类框尚未唯一覆盖全部桌面项目，原图标保持显示。')
     const windows = collectionWindows()
+    setCollectionProgress(true,'正在准备收纳内容…')
     await Promise.all(windows.map(async window => {
       for (let attempt = 0; attempt < 200; attempt++) {
+        if(startupCollectionCancelled || desktopReleasePending)throw new Error('已停止本次收纳，原图标保持显示。')
         if (window.isDestroyed()) throw new Error('组件已关闭，原图标保持显示。')
-        if (!window.webContents.isLoadingMainFrame() && await window.webContents.executeJavaScript("Boolean(document.querySelector('.zone-header, .module-header')) && Array.from(document.querySelectorAll('.file-item')).every(item => item.dataset.path.startsWith('shell:') || (item.querySelector('img')?.complete && item.querySelector('img').naturalWidth > 0))")) return
+        if (!window.webContents.isLoadingMainFrame() && await window.webContents.executeJavaScript("Boolean(document.querySelector('.zone-header, .desktop-collection[data-inventory-ready=\"true\"], .assistant-panel .assistant-header, .health-panel .wellness-controls')) && Array.from(document.querySelectorAll('.file-item')).every(item => item.dataset.path.startsWith('shell:') || (item.querySelector('img')?.complete && item.querySelector('img').naturalWidth > 0) || item.querySelector('[data-icon-fallback]'))")) return
         await new Promise(resolve => setTimeout(resolve, 75))
       }
       throw new Error('组件或图标尚未准备好，原图标保持显示。')
     }))
     if (!store.data.settings.desktopCollected) await backupNativeDesktopLayout(layout)
     if (startupCollectionCancelled || desktopReleasePending) throw new Error('已停止本次收纳，原图标保持显示。')
+    setCollectionProgress(true,'正在收纳桌面…')
     await collectDesktop(windows, message => {
       new Notification({ title: '桌面收纳已停止', body: message }).show()
       void store.update(draft => { draft.settings.desktopCollected = false }).then(() => {
@@ -817,10 +859,16 @@ const startDesktopCollection = async (): Promise<AppData> => {
         desktopRecoveryTimer = setTimeout(() => { desktopRecoveryTimer=null; void collectAtStartup() },1500)
       })
     })
+    if(startupCollectionCancelled || desktopReleasePending)throw new Error('已停止本次收纳，原图标保持显示。')
     const data = await store.update(draft => { draft.settings.desktopCollected = true })
     broadcastData()
+    setCollectionProgress(false,`已收纳 ${data.desktopItems.length} 项`)
     return data
-  } catch (error) { await stopDesktopCollection(false); throw error }
+  } catch (error) {
+    try { await stopDesktopCollection(false) }
+    finally { setCollectionProgress(false,error instanceof Error?error.message:'收纳未完成，原图标保持显示。',!startupCollectionCancelled && !desktopReleasePending) }
+    throw error
+  }
   finally { collectionBusy = false }
 }
 
@@ -910,7 +958,7 @@ const currentWellnessUndo = (): WellnessSnapshot['undo'] => {
     return { id: wellnessUndo.id, kind: wellnessUndo.kind, expiresAt: wellnessUndo.expiresAt }
   } catch { return undefined }
 }
-const wellnessSnapshot = (): WellnessSnapshot => ({ undo: currentWellnessUndo(), state: wellnessReminderState, paused: wellnessPaused, now: wellnessPausedAt ?? Date.now(), hydrationPlan: hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, wellnessPausedAt ?? Date.now()) })
+const wellnessSnapshot = (): WellnessSnapshot => ({ undo: currentWellnessUndo(), state: wellnessReminderState, paused: wellnessPaused, now: wellnessPausedAt ?? Date.now(), hydrationPlan: hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, Date.now()) })
 const publishWellness = (): void => {
   for (const window of [mainWindow, ...desktopModuleWindows.values()]) if (window && !window.isDestroyed()) window.webContents.send('wellness:changed', wellnessSnapshot())
 }
@@ -923,8 +971,11 @@ const advanceWellness = (now: number): void => {
     wellnessReminderState = { ...wellnessReminderState, hydration: clock }
     settings = { ...settings, hydrationReminderEnabled: settings.hydrationReminderEnabled && Boolean(clock), hydrationIntervalMinutes: clock?.intervalMinutes ?? settings.hydrationIntervalMinutes }
   } else if (wellnessReminderState.hydration?.planKey) delete wellnessReminderState.hydration
+  const hydrationClock=store.data.settings.hydrationPlan.enabled?wellnessReminderState.hydration:undefined
   const result = tickReminders(settings, wellnessReminderState, now)
   wellnessReminderState = carriedHydration ? { ...result.state, hydration: carriedHydration } : result.state
+  // Daily progress continues even when notification delivery is switched off.
+  if(hydrationClock && !settings.hydrationReminderEnabled)wellnessReminderState.hydration=hydrationClock
   if (!settings.hydrationReminderEnabled) { wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration') }
   for (const kind of result.due) {
     if (!Notification.isSupported()) continue
@@ -938,6 +989,7 @@ const advanceWellness = (now: number): void => {
     notification.on('click', () => {
       void showDesktopWidgets().then(async () => {
         await updateDesktopModule('todos', { visible: true, collapsed: false })
+        await updateDesktopModule('health', { visible: true })
         const window = desktopModuleWindows.get('todos')
         window?.webContents.send('navigate', `wellness:${kind}`)
         window?.focus()
@@ -950,6 +1002,16 @@ const advanceWellness = (now: number): void => {
 const startReminderWatcher = (): void => {
   let suspended = false
   let locked = false
+  let dayRefresh: Promise<void> | null = null
+  const refreshHydrationDay = (now: number): void => {
+    if (dayRefresh || hydrationDayAt(store.data.hydrationDay, now).date === store.data.hydrationDay.date) return
+    dayRefresh = store.update(data => { data.hydrationDay = hydrationDayAt(data.hydrationDay, Date.now()) }).then(() => {
+      delete wellnessReminderState.hydration
+      wellnessUndo = null
+      advanceWellness(Date.now())
+      broadcastData()
+    }).catch(console.error).finally(() => { dayRefresh = null })
+  }
   const pause = (): void => {
     if (wellnessPausedAt === null) wellnessPausedAt = Date.now()
     wellnessPaused = true
@@ -958,6 +1020,7 @@ const startReminderWatcher = (): void => {
   const resume = (): void => {
     if (suspended || locked) return
     const now = Date.now()
+    refreshHydrationDay(now)
     if (wellnessPausedAt !== null) {
       wellnessReminderState = resumeReminderClocks(wellnessReminderState, wellnessPausedAt, now)
       if (wellnessUndo?.clock) wellnessUndo.clock = resumeReminderClocks({ [wellnessUndo.kind]: wellnessUndo.clock }, wellnessPausedAt, now)[wellnessUndo.kind]
@@ -976,6 +1039,7 @@ const startReminderWatcher = (): void => {
   let nextTodoCheckAt = Date.now() + 20_000
   reminderTimer = setInterval(() => {
     const now = Date.now()
+    refreshHydrationDay(now)
     if (suspended || locked) pause()
     else advanceWellness(now)
     const focus=store.data.suite.focus
@@ -1149,11 +1213,43 @@ const registerIpc = (): void => {
     return data
   })
   ipcMain.handle('wellness:get', () => wellnessSnapshot())
+  ipcMain.handle('desktop:progress', () => collectionProgress)
+  ipcMain.handle('wellness:resetHydration', async () => {
+    await store.update(data => { data.hydrationDay = hydrationDayAt(undefined, Date.now()) })
+    delete wellnessReminderState.hydration
+    if (wellnessUndo?.kind === 'hydration') wellnessUndo = null
+    wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration')
+    advanceWellness(Date.now())
+    broadcastData()
+    return store.data
+  })
+  ipcMain.handle('wellness:menu', (event, kind: unknown) => {
+    if(kind!=='hydration' && kind!=='sedentary')throw new Error('健康提醒类型无效。')
+    const enabled=kind==='hydration'?store.data.settings.hydrationReminderEnabled:store.data.settings.sedentaryReminderEnabled
+    const canSnooze=enabled && (kind!=='hydration' || hydrationPlanCanRecord(hydrationPlanSnapshot(store.data.settings.hydrationPlan,store.data.hydrationDay,Date.now())))
+    const report=(message:string,failed=false):void=>{if(!event.sender.isDestroyed())event.sender.send('wellness:feedback',{message,failed})}
+    const selectInterval=(minutes:number):void=>{void store.update(data=>{
+      if(kind==='hydration'){data.settings.hydrationReminderEnabled=true;data.settings.hydrationIntervalMinutes=minutes;data.settings.hydrationPlan.enabled=false}
+      else{data.settings.sedentaryReminderEnabled=true;data.settings.sedentaryIntervalMinutes=minutes}
+    }).then(()=>{advanceWellness(Date.now());broadcastData();report(`已${kind==='hydration'?'切换为固定间隔，':''}设置为 ${minutes} 分钟`)}).catch(error=>report(error instanceof Error?error.message:'设置未保存，请重试。',true))}
+    const template: Electron.MenuItemConstructorOptions[]=[
+      {label:'10 分钟后提醒',enabled:canSnooze,click:()=>event.sender.send('navigate',`wellness:snooze:${kind}`)},
+      {type:'separator'},
+      ...(kind==='hydration'?[15,30,45,60]:[30,45,60,90]).map(minutes=>({type:'checkbox' as const,label:`${minutes} 分钟${kind==='hydration' && store.data.settings.hydrationPlan.enabled?' · 切换为固定间隔':''}`,checked:enabled && (kind==='hydration'?!store.data.settings.hydrationPlan.enabled && store.data.settings.hydrationIntervalMinutes===minutes:store.data.settings.sedentaryIntervalMinutes===minutes),click:()=>selectInterval(minutes)})),
+      {type:'separator'},
+      {label:'自定义间隔…',click:()=>{void showMainWindow('reminders')}},
+      ...(kind==='hydration'?[{label:'每日喝水计划…',click:()=>{void showMainWindow('reminders')}}]:[])
+    ]
+    Menu.buildFromTemplate(template).popup({window:BrowserWindow.fromWebContents(event.sender) ?? undefined})
+  })
   ipcMain.handle('wellness:respond', async (_event, kind: unknown, action: unknown) => {
     if ((kind !== 'hydration' && kind !== 'sedentary') || (action !== 'done' && action !== 'snooze')) throw new Error('健康提醒操作无效。')
     if (!(kind === 'hydration' ? store.data.settings.hydrationReminderEnabled || store.data.settings.hydrationPlan.enabled : store.data.settings.sedentaryReminderEnabled)) throw new Error('请先开启这项提醒。')
-    const now = wellnessPausedAt ?? Date.now()
-    if(kind==='hydration' && action==='done' && !hydrationPlanCanRecord(hydrationPlanSnapshot(store.data.settings.hydrationPlan,store.data.hydrationDay,now))) throw new Error('今日喝水记录已结束，剩余水量保留为今日未达标记录。')
+    const now = kind === 'hydration' && store.data.settings.hydrationPlan.enabled ? Date.now() : wellnessPausedAt ?? Date.now()
+    if (kind === 'hydration') {
+      const plan = hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, now)
+      if (!hydrationPlanCanRecord(plan)) throw new Error(plan.status === 'before' ? '喝水计划尚未开始，不能记录或扣减水量。' : '今日喝水记录已结束，剩余水量保留为今日未达标记录。')
+    }
     const undo = action === 'done' ? captureWellnessUndo(createId(), kind, store.data.settings, wellnessReminderState[kind], store.data.hydrationDay, Date.now()) : null
     if (kind === 'hydration' && action === 'done' && store.data.settings.hydrationPlan.enabled) {
       await store.update(data => {
@@ -1380,6 +1476,7 @@ const registerIpc = (): void => {
     if(collection==='notes' && (typeof entry.title!=='string' || entry.title.length>120 || typeof entry.content!=='string' || entry.content.length>50000)) throw new Error('便签内容无效或过长。')
     if(collection==='todos' && 'dueAt' in entry && entry.dueAt!==undefined && entry.dueAt!==null && entry.dueAt!=='' && (typeof entry.dueAt!=='string' || !Number.isFinite(Date.parse(entry.dueAt)))) throw new Error('待办日期无效。')
     if (collection === 'todos') {
+      if(entry.id && !('title' in entry) && !store.data.todos.some(todo=>todo.id===entry.id))throw new Error('事项已被删除，请刷新列表。')
       entry = { ...entry }
       if (entry.dueAt === null || entry.dueAt === '') entry.dueAt = undefined
       if ('title' in entry) {
@@ -1650,8 +1747,13 @@ const registerIpc = (): void => {
     const cached = pendingOrganizerPreviews.get(event.sender.id)
     pendingOrganizerPreviews.delete(event.sender.id)
     if (!cached || Date.now() - cached.createdAt > PREVIEW_CONFIRMATION_TTL_MS) throw new Error('整理预览已失效，请重新预览后确认。')
-    const record = await executeOrganization(store.data, cached.plan)
-    const data = await store.update((draft) => { draft.fileOperations = [record, ...draft.fileOperations].slice(0, 30) })
+    const record = await executeOrganization(structuredClone(store.data), cached.plan)
+    const data = await store.update((draft) => {
+      cached.plan.items.forEach((item, index) => {
+        if (item.action === 'assign' && record.items[index]?.status === 'completed') record.items[index] = assignOrganizationItem(draft, item)
+      })
+      draft.fileOperations = [record, ...draft.fileOperations].slice(0, 30)
+    })
     broadcastData()
     return data
   })
@@ -1849,6 +1951,17 @@ app.whenReady().then(async () => {
   await store.update(data => {
     const area = screen.getPrimaryDisplay().workArea
     migrateDesktopCollection(data, area)
+    if(!data.desktopModules.some(module=>module.kind==='health')){
+      const assistant=data.desktopModules.find(module=>module.kind==='todos')!
+      assistant.height=Math.min(assistant.height,Math.max(160,area.y+area.height-assistant.y-144))
+      assistant.preferredBounds={x:assistant.x,y:assistant.y,width:assistant.width,height:assistant.height}
+      data.desktopModules.push({id:'health',kind:'health',title:'喝水与活动',visible:true,collapsed:false,x:assistant.x,y:assistant.y+assistant.height,width:300,height:108,dock:{parentId:'todos',edge:'bottom',offset:0},displayId:screen.getPrimaryDisplay().id})
+    }
+    const health=data.desktopModules.find(module=>module.kind==='health')
+    if(health && [120,128].includes(health.height) && (!health.preferredBounds || health.preferredBounds.height===health.height)){
+      health.height=108
+      if(health.preferredBounds)health.preferredBounds.height=108
+    }
     if(skipTestDesktop) data.settings.desktopCollected=false
     if (!data.desktopModules.some(module=>module.displayId!==undefined)) {
       for(const module of data.desktopModules) module.displayId=screen.getDisplayMatching(module).id
@@ -1888,7 +2001,7 @@ app.whenReady().then(async () => {
     if(collectionBusy || desktopReleasePending) return
     void startDesktopCollection().catch(error => new Notification({title:'桌面收纳未完成',body:error.message}).show())
   })
-  if(!skipTestDesktop && store.data.settings.desktopModeEnabled && store.data.settings.desktopCollected) void collectAtStartup()
+  if(!skipTestDesktop && store.data.settings.desktopModeEnabled && store.data.desktopModules.some(module=>module.id==='quick' && module.visible)) void collectAtStartup()
 
   if (isDevelopment && process.env.GERSON_OPEN_DEVTOOLS === '1') mainWindow?.webContents.openDevTools({ mode: 'detach' })
 

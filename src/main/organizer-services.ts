@@ -107,6 +107,14 @@ const moveOne = async (sourcePath: string, targetPath: string): Promise<FileOper
   }
 }
 
+export const assignOrganizationItem = (data: AppData, item: OrganizerPlanItem): FileOperationItem => {
+  const zone = data.desktopZones.find((candidate) => candidate.id === item.zoneId)
+  if (!zone) return { sourcePath: item.sourcePath, action: 'move', status: 'skipped', reason: '指定桌面分区不存在。' }
+  data.desktopAssignments[item.sourcePath] = zone.id
+  if (!zone.itemIds.includes(item.sourcePath)) zone.itemIds.push(item.sourcePath)
+  return { sourcePath: item.sourcePath, action: 'move', status: 'completed', reason: `已加入应用层分区“${zone.name}”，原文件未移动。` }
+}
+
 export const executeOrganization = async (data: AppData, confirmedPlan?: OrganizerPlan): Promise<FileOperationRecord> => {
   // 必须使用用户刚刚确认的预览计划；不在执行时重扫桌面，避免 Preview 之后出现的新文件被额外处理。
   const plan = confirmedPlan || await previewOrganization(data)
@@ -117,13 +125,7 @@ export const executeOrganization = async (data: AppData, confirmedPlan?: Organiz
       continue
     }
     if (item.action === 'assign') {
-      const zone = data.desktopZones.find((candidate) => candidate.id === item.zoneId)
-      if (!zone) record.items.push({ sourcePath: item.sourcePath, action: 'move', status: 'skipped', reason: '指定桌面分区不存在。' })
-      else {
-        data.desktopAssignments[item.sourcePath] = zone.id
-        if (!zone.itemIds.includes(item.sourcePath)) zone.itemIds.push(item.sourcePath)
-        record.items.push({ sourcePath: item.sourcePath, action: 'move', status: 'completed', reason: `已加入应用层分区“${zone.name}”，原文件未移动。` })
-      }
+      record.items.push(assignOrganizationItem(data, item))
       continue
     }
     if (!item.targetPath) record.items.push({ sourcePath: item.sourcePath, action: 'move', status: 'skipped', reason: '缺少目标路径。' })

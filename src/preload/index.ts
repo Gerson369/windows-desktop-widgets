@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AppData, AppSettings, BatchRenamePlan, DesktopIconArrangePlan, DesktopScanResult, DesktopZone, FileFilters, InboxItem, OrganizerPlan, RecentFile } from '../main/types'
 
-const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args)
+const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args).catch(error => {
+  const message=error instanceof Error?error.message:String(error)
+  throw new Error(message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''))
+})
 
 const toolbox = {
   suite: {
@@ -23,6 +26,13 @@ const toolbox = {
     respond: (id: string, action: 'done' | 'snooze') => invoke<AppData>('todoReminders:respond', id, action),
   },
   wellness: {
+    onFeedback: (callback: (result: {message:string;failed:boolean}) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, result: {message:string;failed:boolean}) => callback(result)
+      ipcRenderer.on('wellness:feedback', listener)
+      return () => ipcRenderer.removeListener('wellness:feedback', listener)
+    },
+    resetHydration: () => invoke<AppData>('wellness:resetHydration'),
+    menu: (kind: import('../main/wellness-reminders').ReminderKind) => invoke<void>('wellness:menu', kind),
     get: () => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:get'),
     undo: (id: string) => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:undo', id),
     respond: (kind: import('../main/wellness-reminders').ReminderKind, action: 'done' | 'snooze') => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:respond', kind, action),
@@ -97,6 +107,12 @@ const toolbox = {
     moveData: (directory: string) => invoke<AppData>('config:moveData', directory)
   },
   desktop: {
+    progress: () => invoke<import('../main/desktop-collection').CollectionProgress>('desktop:progress'),
+    onProgress: (callback: (progress: import('../main/desktop-collection').CollectionProgress) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: import('../main/desktop-collection').CollectionProgress) => callback(progress)
+      ipcRenderer.on('desktop:progressChanged', listener)
+      return () => ipcRenderer.removeListener('desktop:progressChanged', listener)
+    },
     collect: () => invoke<AppData>('desktop:collect'),
     release: () => invoke<AppData>('desktop:release'),
     backupWidgets: () => invoke<AppData>('desktop:backupWidgets'),

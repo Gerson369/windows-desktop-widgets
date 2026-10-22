@@ -8,6 +8,7 @@ export const collectionTabs = [
   { id: 'media', label: '影音', targetZone: 'desktop-videos' }
 ] as const
 export type CollectionTab = typeof collectionTabs[number]['id']
+export interface CollectionProgress { busy: boolean; message: string; failed: boolean }
 
 export function normalizeCollectionRules(source: unknown): AppSettings['collectionRules'] {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {}

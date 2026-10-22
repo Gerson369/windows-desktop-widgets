@@ -15,8 +15,8 @@ export const assistantDetailTools = [
 export type AssistantToolId = typeof assistantTools[number]['id'] | typeof assistantDetailTools[number]['id']
 
 export function desktopPanels(modules: DesktopModule[]): DesktopModule[] {
-  const legacyToolsVisible = modules.some(module => module.kind !== 'quick' && module.kind !== 'todos' && module.visible)
-  return modules.filter(module => module.kind === 'quick' || module.kind === 'todos').map(module => module.kind === 'todos'
+  const legacyToolsVisible = modules.some(module => !['quick','todos','health'].includes(module.kind) && module.visible)
+  return modules.filter(module => ['quick','todos','health'].includes(module.kind)).map(module => module.kind === 'todos'
     ? { ...module, title: '综合助手', visible: module.visible || legacyToolsVisible }
     : { ...module })
 }
@@ -26,6 +26,6 @@ export function setPanelVisibility(modules: DesktopModule[], id: string, visible
   if (!module) throw new Error('未找到指定的桌面模块。')
   module.visible = visible
   if (module.kind === 'todos' && !visible) {
-    for (const tool of modules.filter(item => item.kind !== 'quick' && item.kind !== 'todos')) tool.visible = false
+    for (const tool of modules.filter(item => !['quick','todos','health'].includes(item.kind))) tool.visible = false
   }
 }

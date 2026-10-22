@@ -31,6 +31,6 @@ h1, h2, h3, p { margin-top: 0; } h1 { margin-bottom: 10px; font-size: 23px; font
 .desktop-module{background:color-mix(in srgb,var(--widget-background,#232729) calc(var(--module-alpha,.46)*100%),transparent)!important;color:var(--widget-text,#f4f7f6)!important}
 .zone-window{background:color-mix(in srgb,var(--widget-background,#232729) calc(var(--zone-alpha,.46)*100%),transparent)!important;color:var(--widget-text,#f4f7f6)!important}
 .widget-settings{background:var(--widget-background,#232729)!important;color:var(--widget-text,#f4f7f6)!important}
-.desktop-collection .file-item span,.desktop-module .desktop-todo span,.zone-window .zone-files span{font-size:calc(var(--widget-font-size,14px) - 2px)!important;color:var(--widget-text,#f4f7f6)!important}
+.desktop-collection .file-item span,.desktop-module .desktop-todo span:not(.todo-overdue),.zone-window .zone-files span{font-size:calc(var(--widget-font-size,14px) - 2px)!important;color:var(--widget-text,#f4f7f6)!important}
 .desktop-module .desktop-todo,.desktop-module .todo-title,.desktop-module .todo-create input,.zone-window .zone-files button{color:var(--widget-text,#f4f7f6)!important}
 @media(prefers-reduced-motion:reduce){.suite-widget *,.dashboard *{animation:none!important;transition:none!important}}

@@ -7,12 +7,23 @@ import { createSaveQueue } from '../save-queue'
 const props=defineProps<{data:AppData}>()
 const draft=reactive({...defaultHydrationPlan})
 const message=ref(''),failed=ref(false),dirty=ref(false)
+const resetting=ref(false),resetMessage=ref(''),resetFailed=ref(false)
 const queue=createSaveQueue()
 let revision=0
 const calendar=ref<HTMLElement|null>(null),customSchedule=ref(false)
 watch(()=>props.data.settings.hydrationPlan,plan=>{if(!dirty.value){Object.assign(draft,plan);customSchedule.value=JSON.stringify(hydrationTimes(plan))!==JSON.stringify(hydrationTimes({...plan,times:undefined}))}},{immediate:true})
 const times=computed(()=>hydrationTimes(draft))
 const today=computed(()=>hydrationDayAt(props.data.hydrationDay,Date.now()).consumedMl)
+async function resetToday() {
+  resetting.value=true;resetMessage.value='';resetFailed.value=false
+  try {
+    await toolbox.wellness.resetHydration()
+    resetMessage.value='今日记录已重置，水瓶已补满。开始、结束时间保持不变。'
+  } catch(error) {
+    resetFailed.value=true
+    resetMessage.value=error instanceof Error?error.message:'重置失败，请重试。'
+  } finally { resetting.value=false }
+}
 async function save() {
   const current=++revision
   dirty.value=true;failed.value=false
@@ -21,7 +32,7 @@ async function save() {
   catch(error){message.value=error instanceof Error?error.message:'请检查计划';failed.value=true;return}
   message.value='正在保存…'
   try {
-    await queue(()=>toolbox.settings.update({hydrationPlan:plan,...(plan.enabled?{hydrationReminderEnabled:true}:{})}))
+    await queue(()=>toolbox.settings.update({hydrationPlan:plan,...(plan.enabled && !props.data.settings.hydrationPlan.enabled?{hydrationReminderEnabled:true}:{})}))
     if(current===revision){dirty.value=false;message.value='已保存';failed.value=false}
   } catch(error){if(current===revision){message.value=error instanceof Error?error.message:'未保存，请重试';failed.value=true}}
 }
@@ -39,7 +50,6 @@ function blur(event:KeyboardEvent){(event.target as HTMLInputElement).blur()}
   <h4>喝水方式</h4>
   <div class="choices"><button :aria-pressed="!draft.enabled" @click="setPlan({enabled:false})">固定间隔</button><button :aria-pressed="draft.enabled" @click="setPlan({enabled:true})">每日计划</button></div>
   <h4>每日目标 · 点选即启用</h4><div class="choices"><button v-for="ml in [1000,2000,3000]" :key="ml" :aria-pressed="draft.enabled && draft.goalMl===ml" @click="setPlan({enabled:true,goalMl:ml})">{{ml/1000}} L</button></div>
-  <slot name="quick-controls"/>
   <template v-if="draft.enabled">
     <h4>每日计划详情</h4>
     <label>自定义目标（ml）<input :value="draft.goalMl" type="number" min="500" max="5000" step="100" aria-label="每日喝水目标" @change="setNumber('goalMl',$event)" @keydown.enter.prevent="blur"/></label>
@@ -47,6 +57,9 @@ function blur(event:KeyboardEvent){(event.target as HTMLInputElement).blur()}
     <label>自定义杯量（ml）<input :value="draft.cupMl" type="number" min="50" max="1000" aria-label="每杯水量" @change="setNumber('cupMl',$event)" @keydown.enter.prevent="blur"/></label>
     <div class="time-range"><label>开始<input :value="draft.start" type="time" aria-label="喝水计划开始时间" @change="setPlan({start:($event.target as HTMLInputElement).value})" @keydown.enter.prevent="blur"/></label><span class="time-arrow" aria-hidden="true">→</span><label>结束<input :value="draft.end" type="time" aria-label="喝水计划结束时间" @change="setPlan({end:($event.target as HTMLInputElement).value})" @keydown.enter.prevent="blur"/></label></div>
     <p class="hint">每天 {{times.length}} 杯 · 今日已记录 {{today}} ml。调整目标、杯量或时段会重新平均分配。</p>
+    <button :disabled="resetting || dirty" @click="resetToday">{{resetting?'正在重置…':'重置今日记录'}}</button>
+    <p class="hint">清空今日已喝水量并补满水瓶；结束时间后仍不能记录喝水。</p>
+    <p v-if="resetMessage" :role="resetFailed?'alert':'status'" class="save-message">{{resetMessage}}</p>
     <div class="choices schedule-actions"><button :aria-pressed="!customSchedule" @click="distribute">平均分配</button><button :aria-pressed="customSchedule" @click="customize">自定义时间</button></div>
     <p class="hint">24 小时日视图 · 直接修改每杯时间，至少相隔 5 分钟。</p>
     <div ref="calendar" class="day-calendar" aria-label="24 小时喝水日视图">
@@ -58,6 +71,7 @@ function blur(event:KeyboardEvent){(event.target as HTMLInputElement).blur()}
     <p class="hint">点击水杯记录一杯；结束后停止提醒，次日重算，不补发错过的提醒。</p>
   </template>
   <p v-if="message" :role="failed?'alert':'status'" class="save-message">{{message}} <button v-if="failed" @click="save">重试</button></p>
+  <slot name="quick-controls"/>
 </section>
 </template>
 <style scoped>

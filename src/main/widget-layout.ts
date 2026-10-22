@@ -1,11 +1,12 @@
 import { extraWidgetKinds } from './widget-suite'
+import { validWidgetDock } from './widget-docking'
 import type { AppData, WidgetLayoutBackup } from './types'
 import { normalizeCollectionSorts, normalizeCollectionRules } from './desktop-collection'
 
 export function captureWidgetLayout(data: AppData, id: string, name: string, createdAt: string): WidgetLayoutBackup {
   return {
     id, name, createdAt,
-    modules: data.desktopModules.map(({ id, x, y, width, height, collapsed, visible, displayId, preferredBounds }) => ({ id, x, y, width, height, collapsed, visible, displayId, preferredBounds })),
+    modules: data.desktopModules.map(({ id, x, y, width, height, collapsed, visible, displayId, preferredBounds, dock }) => ({ id, x, y, width, height, collapsed, visible, displayId, preferredBounds, ...(dock?{dock:{...dock}}:{}) })),
     zones: structuredClone(data.desktopZones.filter(zone=>!zone.id.startsWith('desktop-'))),
     suite: {background:data.suite.background,textColor:data.suite.textColor,fontSize:data.suite.fontSize},
     opacity: data.settings.desktopModuleOpacity,
@@ -19,11 +20,12 @@ export function validWidgetLayout(value: unknown): value is WidgetLayoutBackup {
   if (!value || typeof value !== 'object') return false
   const backup = value as WidgetLayoutBackup
   if (typeof backup.id !== 'string' || backup.id.length > 160 || typeof backup.name !== 'string' || backup.name.length > 200 || typeof backup.createdAt !== 'string' || !Number.isFinite(Date.parse(backup.createdAt))) return false
-  if (!Array.isArray(backup.modules) || backup.modules.length < 2 || backup.modules.length > 9 || new Set(backup.modules.map(item => item?.id)).size !== backup.modules.length) return false
-  if (!backup.modules.every(item => item && (['quick', 'todos', ...extraWidgetKinds] as string[]).includes(item.id) && typeof item.collapsed === 'boolean'
+  if (!Array.isArray(backup.modules) || backup.modules.length < 2 || backup.modules.length > 10 || new Set(backup.modules.map(item => item?.id)).size !== backup.modules.length) return false
+  if (!backup.modules.every(item => item && (['quick', 'todos', 'health', ...extraWidgetKinds] as string[]).includes(item.id) && typeof item.collapsed === 'boolean'
+    && (item.dock===undefined || validWidgetDock(item.dock))
     && [item.x, item.y, item.width, item.height].every(Number.isFinite) && Math.abs(item.x) <= 100000 && Math.abs(item.y) <= 100000
-    && item.width >= 300 && item.width <= 10000 && item.height >= 120 && item.height <= 10000)) return false
-  if(backup.modules.some(item=>item.preferredBounds && (![item.preferredBounds.x,item.preferredBounds.y,item.preferredBounds.width,item.preferredBounds.height].every(Number.isFinite) || item.preferredBounds.width<240 || item.preferredBounds.height<120))) return false
+    && item.width >= 300 && item.width <= 10000 && item.height >= (item.id==='health' ? 108 : 120) && item.height <= 10000)) return false
+  if(backup.modules.some(item=>item.preferredBounds && (![item.preferredBounds.x,item.preferredBounds.y,item.preferredBounds.width,item.preferredBounds.height].every(Number.isFinite) || item.preferredBounds.width<240 || item.preferredBounds.height<(item.id==='health' ? 108 : 120)))) return false
   if(backup.zones !== undefined && (!Array.isArray(backup.zones) || backup.zones.length>12 || backup.zones.some(zone=>!zone || typeof zone.id!=='string' || zone.id.startsWith('desktop-') || typeof zone.name!=='string' || zone.name.length>120 || typeof zone.visible!=='boolean' || typeof zone.collapsed!=='boolean' || typeof zone.locked!=='boolean' || !/^#[0-9a-f]{6}$/i.test(zone.color) || !Number.isFinite(zone.opacity) || zone.opacity<0 || zone.opacity>100 || !Array.isArray(zone.itemIds) || zone.itemIds.length>10000 || !zone.itemIds.every(id=>typeof id==='string') || ![zone.x,zone.y,zone.width,zone.height].every(Number.isFinite) || zone.width<240 || zone.height<120))) return false
   return Number.isFinite(backup.opacity) && backup.opacity >= 0 && backup.opacity <= 100
     && Boolean(backup.assignments && typeof backup.assignments === 'object' && !Array.isArray(backup.assignments)
@@ -37,6 +39,8 @@ export function applyWidgetLayout(data: AppData, backup: WidgetLayoutBackup): vo
     const module = data.desktopModules.find(item => item.id === saved.id)
     if (module) {
       if (typeof saved.visible === 'boolean') module.visible = saved.visible
+      if(saved.dock)module.dock={...saved.dock}
+      else delete module.dock
       if (Number.isFinite(saved.displayId)) module.displayId = saved.displayId
       if(saved.preferredBounds) module.preferredBounds={...saved.preferredBounds}
       else delete module.preferredBounds

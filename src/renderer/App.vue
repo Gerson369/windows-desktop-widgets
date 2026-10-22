@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SuiteWidget from './components/SuiteWidget.vue'
 import AssistantPanel from './components/AssistantPanel.vue'
+import HealthPanel from './components/HealthPanel.vue'
 import FloatingNote from './components/FloatingNote.vue'
 import DesktopCollection from './components/DesktopCollection.vue'
 import DesktopZoneWindow from './components/DesktopZoneWindow.vue'
@@ -11,6 +12,7 @@ const dashboard = query.has('dashboard'), noteId = query.get('note'), moduleId =
 <template>
   <AssistantPanel v-if="dashboard"/>
   <FloatingNote v-else-if="noteId" :note-id="noteId"/>
+  <HealthPanel v-else-if="moduleId==='health'"/>
   <SuiteWidget v-else-if="moduleId && (extraWidgetKinds as readonly string[]).includes(moduleId)" :module-id="moduleId"/>
   <DesktopCollection v-else-if="moduleId === 'quick'"/>
   <AssistantPanel v-else-if="moduleId"/>

@@ -131,9 +131,10 @@ export interface ShortcutConfig {
   enabled: boolean
 }
 
-export type DesktopModuleKind = 'quick' | 'todos' | ExtraWidgetKind
+export type DesktopModuleKind = 'quick' | 'todos' | 'health' | ExtraWidgetKind
 
 export interface DesktopModule {
+  dock?: import('./widget-docking').WidgetDock
   id: string
   kind: DesktopModuleKind
   title: string
@@ -151,7 +152,7 @@ export interface WidgetLayoutBackup {
   id: string
   name: string
   createdAt: string
-  modules: Array<Pick<DesktopModule, 'id' | 'x' | 'y' | 'width' | 'height' | 'collapsed'> & Partial<Pick<DesktopModule, 'visible' | 'displayId' | 'preferredBounds'>>>
+  modules: Array<Pick<DesktopModule, 'id' | 'x' | 'y' | 'width' | 'height' | 'collapsed'> & Partial<Pick<DesktopModule, 'visible' | 'displayId' | 'preferredBounds' | 'dock'>>>
   zones?: DesktopZone[]
   suite?: Pick<WidgetSuite, 'background' | 'textColor' | 'fontSize'>
   opacity: number

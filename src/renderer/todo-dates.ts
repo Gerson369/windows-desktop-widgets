@@ -24,6 +24,23 @@ export function parseTodoDate(input:string,now:number):string|null {
   const key=`${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`
   return validDateKey(key)?key:null
 }
+export function parseTodoDateTime(input: string, now: number): string | null {
+  const parts = input.trim().split(/[T ]/)
+  if (parts.length === 1) return parseTodoDate(parts[0], now)
+  if (parts.length !== 2 || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(parts[1])) return null
+  const day = parseTodoDate(parts[0], now)
+  return day ? `${day}T${parts[1]}` : null
+}
+export function todoDueAt(value: string): string | undefined {
+  if (!value) return undefined
+  const parsed = parseTodoDateTime(value, 0)
+  if (!parsed) throw new Error('请输入有效的年月日和时间。')
+  return new Date(parsed.includes('T') ? `${parsed}:00` : `${parsed}T23:59:00`).toISOString()
+}
+export function todoDueValue(value: string): string {
+  const date = new Date(value)
+  return `${dateKey(date)}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`
+}
 export function calendarMonthDays(month:string):string[] {
   const first=new Date(`${month}-01T12:00:00`)
   first.setDate(first.getDate()-((first.getDay()+6)%7))

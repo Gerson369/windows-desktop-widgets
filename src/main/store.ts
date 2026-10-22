@@ -1,5 +1,6 @@
 import { validateSuite, defaultSuite, extraWidgetKinds } from './widget-suite'
 import { validateHydrationPlan, hydrationDayAt } from './hydration-plan'
+import { validWidgetDock } from './widget-docking'
 import { mkdir, copyFile, access, rename } from 'node:fs/promises'
 import { constants, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -104,10 +105,11 @@ export class DataStore {
     data.favorites = data.favorites.filter((item) => typeof item.name === 'string' && typeof item.path === 'string' && typeof item.createdAt === 'string')
     data.notes = data.notes.filter((item) => typeof item.title === 'string' && typeof item.content === 'string' && typeof item.updatedAt === 'string' && typeof item.pinned === 'boolean')
     data.clipboardHistory = data.clipboardHistory.filter((item) => item.type === 'text' ? typeof item.text === 'string' && item.text.length <= 50_000 : item.type === 'image' && typeof item.imageDataUrl === 'string' && item.imageDataUrl.length <= 4_500_000).slice(0, 50)
-    data.desktopModules = data.desktopModules.filter((item) => (['quick', 'todos', ...extraWidgetKinds] as string[]).includes(item.kind) && typeof item.title === 'string' && typeof item.visible === 'boolean' && typeof item.collapsed === 'boolean' && [item.x, item.y, item.width, item.height].every((value) => typeof value === 'number' && Number.isFinite(value)))
+    data.desktopModules = data.desktopModules.filter((item) => (['quick', 'todos', 'health', ...extraWidgetKinds] as string[]).includes(item.kind) && typeof item.title === 'string' && typeof item.visible === 'boolean' && typeof item.collapsed === 'boolean' && [item.x, item.y, item.width, item.height].every((value) => typeof value === 'number' && Number.isFinite(value)))
+    for(const item of data.desktopModules) if(!validWidgetDock(item.dock)) delete item.dock
     for(const item of [...data.desktopModules,...data.desktopZones]) {
       const bounds=item.preferredBounds
-      if(bounds && (![bounds.x,bounds.y,bounds.width,bounds.height].every(value=>typeof value==='number' && Number.isFinite(value)) || bounds.width<240 || bounds.height<120)) delete item.preferredBounds
+      if(bounds && (![bounds.x,bounds.y,bounds.width,bounds.height].every(value=>typeof value==='number' && Number.isFinite(value)) || bounds.width<240 || bounds.height<('kind' in item && item.kind==='health' ? 108 : 120))) delete item.preferredBounds
     }
     if (!data.desktopModules.length) data.desktopModules = defaults.desktopModules
     data.desktopZones = data.desktopZones.filter((item) => typeof item.name === 'string' && typeof item.visible === 'boolean' && typeof item.collapsed === 'boolean' && typeof item.locked === 'boolean' && Array.isArray(item.itemIds) && [item.x, item.y, item.width, item.height].every((value) => typeof value === 'number' && Number.isFinite(value)))
@@ -156,8 +158,15 @@ export class DataStore {
 
   private createDatabase(filePath: string): LowDbAdapter { return low(new FileSync(filePath)) }
   get data(): AppData { const data = this.db.getState(); if (!data) throw new Error('桌面搭子数据尚未初始化。'); return data }
-  async update(mutator: (data: AppData) => void): Promise<AppData> { const data = this.data; mutator(data); this.db.setState(data); this.db.write(); return data }
-  async replace(data: AppData): Promise<AppData> { const normalized = this.normalize(data); this.db.setState(normalized); this.db.write(); return normalized }
+  private persist(data: AppData): AppData {
+    const previous=this.data
+    this.db.setState(data)
+    try { this.db.write() }
+    catch(error) { this.db.setState(previous); throw error }
+    return data
+  }
+  async update(mutator: (data: AppData) => void): Promise<AppData> { const draft=structuredClone(this.data); mutator(draft); return this.persist(draft) }
+  async replace(data: AppData): Promise<AppData> { return this.persist(this.normalize(data)) }
   async reset(): Promise<AppData> { return this.replace(defaultData()) }
   async exportTo(destination: string): Promise<void> { this.db.write(); await mkdir(dirname(destination), { recursive: true }); await copyFile(this.filePath, destination) }
   async importFrom(source: string): Promise<AppData> { let candidate: AppData | undefined; try { candidate = this.createDatabase(source).getState() } catch { throw new Error('所选文件不是有效的桌面搭子配置文件。') }; if (!candidate || !isRecord(candidate) || !isRecord(candidate.settings) || !Array.isArray(candidate.todos)) throw new Error('所选文件不是有效的桌面搭子配置文件。'); if(candidate.suite) validateSuite(candidate.suite); await this.exportTo(`${this.filePath}.before-import-${Date.now()}.json`); return this.replace(candidate) }
