@@ -13,14 +13,14 @@ export function dockedWidgetBounds(child: WidgetBounds, dock: WidgetDock, parent
   }
 }
 export function findWidgetDock(child: WidgetBounds, parents: Array<{id:string;bounds:WidgetBounds}>): WidgetDock | undefined {
-  for(const {id,bounds:p} of parents){
+  for(const direction of ['vertical','horizontal'])for(const {id,bounds:p} of parents){
     if(id!=='quick' && id!=='todos')continue
     const horizontal=Math.min(child.x+child.width,p.x+p.width)-Math.max(child.x,p.x)>32
     const vertical=Math.min(child.y+child.height,p.y+p.height)-Math.max(child.y,p.y)>32
-    if(horizontal && Math.abs(child.y-p.y-p.height)<=1)return {parentId:id,edge:'bottom',offset:child.x-p.x}
-    if(horizontal && Math.abs(child.y+child.height-p.y)<=1)return {parentId:id,edge:'top',offset:child.x-p.x}
-    if(vertical && Math.abs(child.x-p.x-p.width)<=1)return {parentId:id,edge:'right',offset:child.y-p.y}
-    if(vertical && Math.abs(child.x+child.width-p.x)<=1)return {parentId:id,edge:'left',offset:child.y-p.y}
+    if(direction==='vertical' && horizontal && Math.abs(child.y-p.y-p.height)<=1)return {parentId:id,edge:'bottom',offset:child.x-p.x}
+    if(direction==='vertical' && horizontal && Math.abs(child.y+child.height-p.y)<=1)return {parentId:id,edge:'top',offset:child.x-p.x}
+    if(direction==='horizontal' && vertical && Math.abs(child.x-p.x-p.width)<=1)return {parentId:id,edge:'right',offset:child.y-p.y}
+    if(direction==='horizontal' && vertical && Math.abs(child.x+child.width-p.x)<=1)return {parentId:id,edge:'left',offset:child.y-p.y}
   }
 }
 export function fitDockedParent(parent: WidgetBounds, child: WidgetBounds, dock: WidgetDock, area: WidgetBounds): WidgetBounds {

@@ -7,6 +7,7 @@ test('health dock follows any supported edge and detaches once it is dragged awa
  assert.deepEqual(dock,{parentId:'todos',edge:'bottom',offset:0})
  assert.deepEqual(dockedWidgetBounds(child,dock,{...parent,x:130,y:150}),{...child,x:130,y:550})
  assert.equal(findWidgetDock({...child,y:530},[{id:'todos',bounds:parent}]),undefined)
+ assert.deepEqual(findWidgetDock(child,[{id:'quick',bounds:{x:400,y:100,width:300,height:700}},{id:'todos',bounds:parent}]),{parentId:'todos',edge:'bottom',offset:0})
  for(const edge of ['top','bottom','left','right'])assert.equal(validWidgetDock({parentId:'quick',edge,offset:0}),true)
  assert.equal(validWidgetDock({parentId:'health',edge:'bottom',offset:0}),false)
  const fitted=fitDockedParent({...parent,y:300},child,dock,{x:0,y:0,width:1000,height:800})
@@ -20,6 +21,38 @@ test('health dock follows any supported edge and detaches once it is dragged awa
  setPanelVisibility(modules,'todos',false)
  assert.equal(modules.find(m=>m.id==='health').visible,true)
 })
+test('startup health normalization keeps saved docks for collapsed or hidden parents and prefers a detected dock',()=>{
+ const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm')
+ const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
+ const size=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text==='healthWidgetSize'))
+ const startup=ast.statements.find(node=>ts.isExpressionStatement(node) && node.expression.getText(ast).startsWith('app.whenReady().then('))
+ assert.ok(size && startup)
+ let healthDeclaration,normalization
+ function visit(node){
+  if(ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text==='health'))healthDeclaration=node
+  if(ts.isIfStatement(node) && node.expression.getText(ast)==='health' && node.thenStatement.getText(ast).includes('Object.assign(health,healthWidgetSize)'))normalization=node
+  ts.forEachChild(node,visit)
+ }
+ visit(startup)
+ assert.ok(healthDeclaration && normalization)
+ const compiled=ts.transpileModule(`${size.getText(ast)};module.exports=data=>{${healthDeclaration.getText(ast)};${normalization.getText(ast)}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+ const context={module:{exports:null},...loadTypeScript('src/main/widget-docking.ts')}
+ vm.runInNewContext(compiled,context)
+ const savedDock={parentId:'todos',edge:'bottom',offset:0}
+ const parent={id:'todos',kind:'todos',visible:true,collapsed:true,x:100,y:100,width:300,height:400}
+ for(const visible of [true,false]){
+  const health={id:'health',kind:'health',x:100,y:142,width:450,height:128,preferredBounds:{x:100,y:142,width:450,height:128},dock:{...savedDock}}
+  context.module.exports({desktopModules:[{...parent,visible},health]})
+  assert.deepEqual(health.dock,savedDock)
+  assert.equal(health.width,300);assert.equal(health.height,108)
+  assert.deepEqual(health.preferredBounds,{x:100,y:142,width:300,height:108})
+ }
+ const health={id:'health',kind:'health',x:100,y:500,width:450,height:128,dock:{parentId:'quick',edge:'right',offset:0}}
+ context.module.exports({desktopModules:[{...parent,collapsed:false},health]})
+ assert.deepEqual(health.dock,savedDock)
+ assert.equal(health.width,300);assert.equal(health.height,108)
+})
+
 test('docked panels fit all four edges after moving or oversized resizing',()=>{
  const {dockedWidgetBounds,fitDockedParent}=loadTypeScript('src/main/widget-docking.ts')
  const area={x:0,y:0,width:1366,height:728},child={x:0,y:0,width:300,height:108}
@@ -59,7 +92,7 @@ test('docked fitting preserves normal and collapsed layouts and minimum window s
 test('window callbacks apply width-only dock fitting and preserve ordinary right resizing',()=>{
  const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),{EventEmitter}=require('node:events')
  const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
- const declarations=['snapDesktopModuleBounds','bindDesktopWidgetMovement'].map(name=>{
+ const declarations=['healthWidgetSize','snapDesktopModuleBounds','bindDesktopWidgetMovement'].map(name=>{
   const statement=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text===name))
   assert.ok(statement,`${name} exists`)
   return statement.getText(ast)

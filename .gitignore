@@ -45,3 +45,5 @@
 !/scripts/verify-assistant-overview.mjs
 !/scripts/verify-health-overdue.mjs
 !/scripts/verify-wellness-footer.mjs
+
+!/scripts/verify-settings-redesign.mjs

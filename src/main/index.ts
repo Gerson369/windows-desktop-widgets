@@ -256,19 +256,21 @@ const hideQuickSearchWindow = (): void => {
   }
 }
 
+const healthWidgetSize = {width:300,height:108}
+
 const desktopModuleBounds = (module: DesktopModule): Electron.Rectangle => {
   const raw = {
   x: Math.round(module.x),
   y: Math.round(module.y),
-  width: Math.max(240, Math.round(module.width)),
-  height: module.kind!=='health' && module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : Math.max(module.kind==='health' ? 108 : 120, Math.round(module.height))
+  width: module.kind==='health' ? healthWidgetSize.width : Math.max(240, Math.round(module.width)),
+  height: module.kind==='health' ? healthWidgetSize.height : module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : Math.max(120, Math.round(module.height))
   }
   if(module.kind==='health' && module.dock){
     const parent=store.data.desktopModules.find(item=>item.id===module.dock!.parentId)
     if(parent)return dockedWidgetBounds(raw,module.dock,desktopModuleBounds(parent))
   }
   const health=store.data.desktopModules.find(item=>item.kind==='health' && item.visible && item.dock?.parentId===module.id)
-  return health?.dock ? fitDockedParent(raw,health,health.dock,screen.getDisplayMatching(raw).workArea) : raw
+  return health?.dock ? fitDockedParent(raw,{...health,...healthWidgetSize},health.dock,screen.getDisplayMatching(raw).workArea) : raw
 }
 
 const followDockedHealth = (parentId: string, bounds: Electron.Rectangle): void => {
@@ -276,7 +278,7 @@ const followDockedHealth = (parentId: string, bounds: Electron.Rectangle): void 
   const window=health && desktopModuleWindows.get(health.id)
   if(!health?.dock || !window || window.isDestroyed() || isDesktopWidgetInteracting(health.id))return
   applyingDesktopModuleBounds.add(health.id)
-  try{window.setBounds(dockedWidgetBounds(window.getBounds(),health.dock,bounds))}finally{applyingDesktopModuleBounds.delete(health.id)}
+  try{window.setBounds(dockedWidgetBounds({...window.getBounds(),...healthWidgetSize},health.dock,bounds))}finally{applyingDesktopModuleBounds.delete(health.id)}
 }
 
 const snapDesktopModuleBounds = (movingId: string, raw: Electron.Rectangle, resizing = false): Electron.Rectangle => {
@@ -287,10 +289,18 @@ const snapDesktopModuleBounds = (movingId: string, raw: Electron.Rectangle, resi
     .map(([, window]) => window.getBounds())
   const snapped=store.data.settings.snapMode === 'none' ? raw : (resizing ? snapResizedWidgetBounds : snapWidgetBounds)(raw, display, neighbors, store.data.settings.desktopSnapDistance)
   const health=store.data.desktopModules.find(item=>item.kind==='health' && item.visible && item.dock?.parentId===movingId)
-  return health?.dock ? fitDockedParent(snapped,health,health.dock,display) : snapped
+  return health?.dock ? fitDockedParent(snapped,{...health,...healthWidgetSize},health.dock,display) : snapped
 }
 
 const bindDesktopWidgetMovement = (id: string, window: BrowserWindow, applying: Set<string>, persist: () => void): void => {
+  if(id==='health')window.on('resize',()=>{
+    if(window.isDestroyed())return
+    const bounds=window.getBounds()
+    if(bounds.width===healthWidgetSize.width && bounds.height===healthWidgetSize.height)return
+    applying.add(id)
+    try{window.setBounds({...window.getBounds(),...healthWidgetSize})}finally{applying.delete(id)}
+  })
+
   window.on('move',()=>{if(!window.isDestroyed())followDockedHealth(id,window.getBounds())})
   window.on('resize',()=>{if(!window.isDestroyed())followDockedHealth(id,window.getBounds())})
   window.on('will-resize', (event, raw, details) => {
@@ -371,7 +381,9 @@ const refreshDesktopModules = async (): Promise<void> => {
         hasShadow: false,
         resizable: module.kind!=='health' && !module.collapsed,
         minWidth: 300,
-        minHeight: 42,
+        minHeight: module.kind==='health' ? 108 : 42,
+        maxWidth: module.kind==='health' ? healthWidgetSize.width : undefined,
+        maxHeight: module.kind==='health' ? healthWidgetSize.height : undefined,
         skipTaskbar: true,
         show: false,
         webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
@@ -397,6 +409,7 @@ const refreshDesktopModules = async (): Promise<void> => {
       await loadRenderer(window, { desktopModule: module.id })
     }
     applyingDesktopModuleBounds.add(module.id)
+    if(module.kind==='health')window.setMaximumSize(healthWidgetSize.width,healthWidgetSize.height)
     window.setMinimumSize(300, module.kind==='health' ? 108 : module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : module.kind === 'quick' ? 280 : 160)
     if (!isDesktopWidgetInteracting(module.id)) window.setBounds(desktopModuleBounds(module))
     window.setResizable(module.kind!=='health' && !module.collapsed)
@@ -1958,9 +1971,10 @@ app.whenReady().then(async () => {
       data.desktopModules.push({id:'health',kind:'health',title:'喝水与活动',visible:true,collapsed:false,x:assistant.x,y:assistant.y+assistant.height,width:300,height:108,dock:{parentId:'todos',edge:'bottom',offset:0},displayId:screen.getPrimaryDisplay().id})
     }
     const health=data.desktopModules.find(module=>module.kind==='health')
-    if(health && [120,128].includes(health.height) && (!health.preferredBounds || health.preferredBounds.height===health.height)){
-      health.height=108
-      if(health.preferredBounds)health.preferredBounds.height=108
+    if(health){
+      Object.assign(health,healthWidgetSize)
+      if(health.preferredBounds)Object.assign(health.preferredBounds,healthWidgetSize)
+      if(health.dock)health.dock=findWidgetDock(health,data.desktopModules.filter(module=>module.visible && ['quick','todos'].includes(module.id)).map(module=>({id:module.id,bounds:module}))) ?? health.dock
     }
     if(skipTestDesktop) data.settings.desktopCollected=false
     if (!data.desktopModules.some(module=>module.displayId!==undefined)) {

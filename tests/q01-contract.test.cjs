@@ -41,9 +41,9 @@ test('冻结范围内不存在 CPU、内存或临时目录清理入口', () => {
 })
 
 test('桌面助手仅呈现已确认的功能入口', () => {
-  const source = ['src/renderer/App.vue','src/renderer/components/SettingsPanel.vue'].map(relative=>fs.readFileSync(path.join(root,relative),'utf8')).join('\n')
+  const source = ['src/renderer/App.vue','src/renderer/components/SettingsPanel.vue','src/renderer/components/HydrationPlanSettings.vue','src/renderer/components/SuiteSettings.vue','src/renderer/components/OrganizerCenter.vue'].map(relative=>fs.readFileSync(path.join(root,relative),'utf8')).join('\n')
   assert.doesNotMatch(source, /文件搜索|系统增强|更新与支持|LocalTools|QuickSearchOverlay|CaptureOverlay/)
-  for (const label of ['助手设置', '文件分类', '喝水提醒', '久坐提醒', '组件布局备份', '原桌面图标位置备份']) assert.ok(source.includes(label))
+  for (const label of ['助手设置', '文件分类', '饮水计划', '久坐提醒', '组件布局备份', '原桌面图标位置备份']) assert.ok(source.includes(label))
   const main = fs.readFileSync(path.join(root, 'src/main/index.ts'), 'utf8')
   assert.doesNotMatch(main, /startClipboardWatcher|clipboardTimer/)
 })

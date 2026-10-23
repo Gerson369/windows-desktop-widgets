@@ -69,7 +69,7 @@ onMounted(async () => {
 onBeforeUnmount(() => { dispose?.(); disposeNavigation?.(); document.removeEventListener('keydown', keydown) })
 </script>
 <template>
-  <main class="assistant-panel" :style="{ '--panel-alpha': (data?.settings.desktopModuleOpacity ?? 70) / 100 }" @mouseenter="hover.enter" @mouseleave="hover.leave">
+  <main class="assistant-panel" :class="{ 'is-settings': settingsOpen }" :style="{ '--panel-alpha': (data?.settings.desktopModuleOpacity ?? 70) / 100 }" @mouseenter="hover.enter" @mouseleave="hover.leave">
     <header class="module-header assistant-header" @pointerdown="drag.start" @pointermove="drag.move" @pointerup="drag.finish" @pointercancel="drag.finish" @lostpointercapture="drag.finish">
       <button v-if="settingsOpen" title="返回助手" aria-label="返回助手" @click="settingsOpen=false"><AssistantIcon name="back"/></button><AssistantIcon v-else name="layout"/><b>{{settingsOpen ? '助手设置' : '综合助手'}}</b>
       <button :title="collapsed ? '展开' : '收起'" :aria-label="collapsed ? '展开综合助手' : '收起综合助手'" @click="toggleCollapsed"><AssistantIcon :name="collapsed ? 'expand' : 'collapse'"/></button>
@@ -89,6 +89,8 @@ onBeforeUnmount(() => { dispose?.(); disposeNavigation?.(); document.removeEvent
   </main>
 </template>
 <style scoped>
+.assistant-panel.is-settings>.assistant-header{background:#1c2024;color:#f0f3f2}
+
 .assistant-panel>:not(.assistant-flood){position:relative;z-index:1}.assistant-flood{position:absolute;inset:40px 0 0;z-index:0;pointer-events:none;transform:translateY(calc((1 - var(--water-level))*100%));transition:transform 1s linear;overflow:visible}.flood-surface{position:absolute;left:0;top:-12px;width:200%;height:calc(100% + 12px);fill:color-mix(in srgb,var(--overflow-color) 24%,transparent);animation:flood-swell 4s linear infinite}@keyframes flood-swell{from{transform:translateX(0)}to{transform:translateX(-50%)}}@media(prefers-reduced-motion:reduce){.assistant-flood{transition:none}.flood-surface{animation:none}}
 
 .assistant-panel{position:relative;isolation:isolate;height:100%;display:flex;flex-direction:column;overflow:hidden;border:1px solid #ffffff32;border-radius:6px;background:color-mix(in srgb,var(--widget-background,#232729) calc(var(--panel-alpha)*100%),transparent);color:var(--widget-text,#f4f7f6);font:var(--widget-font-size,14px) 'Microsoft YaHei UI',sans-serif}
