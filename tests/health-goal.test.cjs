@@ -169,7 +169,7 @@ test('failed undo retains the active operation for retry and keeps technical err
   assert.deepEqual(editor.undoCalls, ['recent'])
   assert.equal(editor.state.snapshot.value.undo.id, 'recent')
   assert.equal(editor.state.undoFailed.value, true)
-  assert.match(editor.state.receiptLabel.value, /可重试/)
+  assert.match(editor.state.undoLabel.value, /可重试/)
   assert.equal(editor.state.error.value, '')
   assert.equal(editor.state.pending.value, false)
   assert.equal(JSON.stringify(editor.props.data.hydrationDay), dayBefore)
@@ -178,10 +178,10 @@ test('failed undo retains the active operation for retry and keeps technical err
   assert.equal(editor.state.undoFailed.value, false)
   assert.equal(editor.state.undo.value, undefined)
   assert.match(editor.state.feedback.value, /已撤销/)
-  assert.ok(editor.state.undoNoticeUntil.value > editor.state.now.value)
+  assert.equal(editor.state.canUndo('hydration'), false)
 })
 
-test('pending undo ignores repeated clicks and produces one short confirmation after completion', async () => {
+test('pending undo ignores repeated clicks and clears the inline action after completion', async () => {
   let completeUndo
   const editor = await goalEditor({ undoGate: new Promise(resolve => { completeUndo = resolve }) })
   const now = Date.now()
@@ -195,8 +195,8 @@ test('pending undo ignores repeated clicks and produces one short confirmation a
   } finally { completeUndo(); await completing }
   assert.equal(editor.state.pending.value, false)
   assert.equal(editor.state.undo.value, undefined)
-  assert.ok(editor.state.undoNoticeUntil.value - editor.state.now.value <= 2500)
-  assert.ok(editor.state.undoNoticeUntil.value > editor.state.now.value)
+  assert.equal(editor.state.canUndo('sedentary'), false)
+  assert.match(editor.state.feedback.value, /已撤销/)
 })
 
 test('the undo ring follows the original deadline and disappears without extending the undo window', async () => {
@@ -214,6 +214,21 @@ test('the undo ring follows the original deadline and disappears without extendi
   await editor.state.undoCompletion()
   assert.deepEqual(editor.undoCalls, [])
   editor.state.undoFailed.value = true
-  assert.match(editor.state.receiptLabel.value, /已无法撤销/)
-  assert.doesNotMatch(editor.state.receiptLabel.value, /可重试/)
+  assert.match(editor.state.undoLabel.value, /已无法撤销/)
+  assert.doesNotMatch(editor.state.undoLabel.value, /可重试/)
+})
+
+test('only the latest operation owns an inline undo action and expiry removes it', async () => {
+  const editor = await goalEditor()
+  const now = Date.now(), expiresAt = now + 15000
+  editor.state.now.value = now
+  editor.state.snapshot.value = { state: {}, paused: false, now, undo: { id: 'water', kind: 'hydration', expiresAt } }
+  assert.equal(editor.state.canUndo('hydration'), true)
+  assert.equal(editor.state.canUndo('sedentary'), false)
+  editor.state.snapshot.value = { state: {}, paused: false, now, undo: { id: 'activity', kind: 'sedentary', expiresAt } }
+  assert.equal(editor.state.canUndo('hydration'), false)
+  assert.equal(editor.state.canUndo('sedentary'), true)
+  editor.state.now.value = expiresAt
+  assert.equal(editor.state.canUndo('hydration'), false)
+  assert.equal(editor.state.canUndo('sedentary'), false)
 })

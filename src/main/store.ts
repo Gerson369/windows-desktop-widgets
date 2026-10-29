@@ -9,6 +9,7 @@ import { AppData, defaultData } from './types'
 import { normalizeReminderSettings } from './wellness-reminders'
 import { normalizeCollectionSorts, normalizeCollectionRules } from './desktop-collection'
 import { validWidgetLayout } from './widget-layout'
+import { healthWidgetSize } from './desktop-panels'
 
 interface LowDbAdapter {
   getState(): AppData | undefined
@@ -109,7 +110,7 @@ export class DataStore {
     for(const item of data.desktopModules) if(!validWidgetDock(item.dock)) delete item.dock
     for(const item of [...data.desktopModules,...data.desktopZones]) {
       const bounds=item.preferredBounds
-      if(bounds && (![bounds.x,bounds.y,bounds.width,bounds.height].every(value=>typeof value==='number' && Number.isFinite(value)) || bounds.width<240 || bounds.height<('kind' in item && item.kind==='health' ? 108 : 120))) delete item.preferredBounds
+      if(bounds && (![bounds.x,bounds.y,bounds.width,bounds.height].every(value=>typeof value==='number' && Number.isFinite(value)) || bounds.width<240 || bounds.height<('kind' in item && item.kind==='health' ? healthWidgetSize.height : 120))) delete item.preferredBounds
     }
     if (!data.desktopModules.length) data.desktopModules = defaults.desktopModules
     data.desktopZones = data.desktopZones.filter((item) => typeof item.name === 'string' && typeof item.visible === 'boolean' && typeof item.collapsed === 'boolean' && typeof item.locked === 'boolean' && Array.isArray(item.itemIds) && [item.x, item.y, item.width, item.height].every((value) => typeof value === 'number' && Number.isFinite(value)))

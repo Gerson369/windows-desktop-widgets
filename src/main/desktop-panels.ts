@@ -1,5 +1,7 @@
 import type { DesktopModule } from './types'
 
+export const healthWidgetSize = { width: 300, height: 80 } as const
+
 export const assistantTools = [
   { id: 'todos', title: '待办', icon: 'todo' },
   { id: 'calendar', title: '日历', icon: 'calendar' },

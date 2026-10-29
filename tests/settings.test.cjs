@@ -52,9 +52,9 @@ test('health dock follows any supported edge and detaches once it is dragged awa
 test('startup health normalization keeps saved docks for collapsed or hidden parents and prefers a detected dock',()=>{
  const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm')
  const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
- const size=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text==='healthWidgetSize'))
+ const {healthWidgetSize}=loadTypeScript('src/main/desktop-panels.ts')
  const startup=ast.statements.find(node=>ts.isExpressionStatement(node) && node.expression.getText(ast).startsWith('app.whenReady().then('))
- assert.ok(size && startup)
+ assert.ok(startup)
  let healthDeclaration,normalization
  function visit(node){
   if(ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text==='health'))healthDeclaration=node
@@ -63,29 +63,29 @@ test('startup health normalization keeps saved docks for collapsed or hidden par
  }
  visit(startup)
  assert.ok(healthDeclaration && normalization)
- const compiled=ts.transpileModule(`${size.getText(ast)};module.exports=data=>{${healthDeclaration.getText(ast)};${normalization.getText(ast)}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
- const context={module:{exports:null},...loadTypeScript('src/main/widget-docking.ts')}
+ const compiled=ts.transpileModule(`module.exports=data=>{${healthDeclaration.getText(ast)};${normalization.getText(ast)}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+ const context={module:{exports:null},healthWidgetSize,...loadTypeScript('src/main/widget-docking.ts')}
  vm.runInNewContext(compiled,context)
  const savedDock={parentId:'todos',edge:'bottom',offset:0}
  const parent={id:'todos',kind:'todos',visible:true,collapsed:true,x:100,y:100,width:300,height:400}
- for(const visible of [true,false]){
-  const health={id:'health',kind:'health',x:100,y:142,width:450,height:128,preferredBounds:{x:100,y:142,width:450,height:128},dock:{...savedDock}}
+ for(const visible of [true,false])for(const height of [108,128]){
+  const health={id:'health',kind:'health',x:100,y:142,width:450,height,preferredBounds:{x:100,y:142,width:450,height},dock:{...savedDock}}
   context.module.exports({desktopModules:[{...parent,visible},health]})
   assert.deepEqual(health.dock,savedDock)
-  assert.equal(health.width,300);assert.equal(health.height,108)
-  assert.deepEqual(health.preferredBounds,{x:100,y:142,width:300,height:108})
+  assert.equal(health.width,300);assert.equal(health.height,80)
+  assert.deepEqual(health.preferredBounds,{x:100,y:142,width:300,height:80})
  }
  const health={id:'health',kind:'health',x:100,y:500,width:450,height:128,dock:{parentId:'quick',edge:'right',offset:0}}
  context.module.exports({desktopModules:[{...parent,collapsed:false},health]})
  assert.deepEqual(health.dock,savedDock)
- assert.equal(health.width,300);assert.equal(health.height,108)
+ assert.equal(health.width,300);assert.equal(health.height,80)
 })
 
 test('docked panels fit all four edges after moving or oversized resizing',()=>{
  const {dockedWidgetBounds,fitDockedParent}=loadTypeScript('src/main/widget-docking.ts')
- const area={x:0,y:0,width:1366,height:728},child={x:0,y:0,width:300,height:108}
+ const area={x:0,y:0,width:1366,height:728},child={x:0,y:0,width:300,height:80}
  const parent={x:100,y:0,width:300,height:700},dock={parentId:'todos',edge:'bottom',offset:0}
- assert.deepEqual(fitDockedParent(parent,child,dock,area),{...parent,y:0,height:620})
+ assert.deepEqual(fitDockedParent(parent,child,dock,area),{...parent,y:0,height:648})
  for(const parentId of ['quick','todos'])for(const edge of ['top','bottom','left','right'])for(const offset of [-60,0,60]){
   const proposed={x:-500,y:600,width:2000,height:2000},attachment={parentId,edge,offset}
   const fitted=fitDockedParent(proposed,child,attachment,area),attached=dockedWidgetBounds(child,attachment,fitted)
@@ -98,12 +98,12 @@ test('docked panels fit all four edges after moving or oversized resizing',()=>{
   assert.deepEqual(attachment,{parentId,edge,offset})
  }
  assert.deepEqual(parent,{x:100,y:0,width:300,height:700})
- assert.deepEqual(child,{x:0,y:0,width:300,height:108})
+ assert.deepEqual(child,{x:0,y:0,width:300,height:80})
 })
 
 test('docked fitting preserves normal and collapsed layouts and minimum window sizes',()=>{
  const {fitDockedParent}=loadTypeScript('src/main/widget-docking.ts')
- const area={x:0,y:0,width:2000,height:1600},child={x:0,y:0,width:300,height:108}
+ const area={x:0,y:0,width:2000,height:1600},child={x:0,y:0,width:300,height:80}
  for(const parentId of ['quick','todos'])for(const edge of ['top','bottom','left','right'])for(const height of [42,400]){
   const parent={x:400,y:400,width:300,height},dock={parentId,edge,offset:0}
   assert.deepEqual(fitDockedParent(parent,child,dock,area),parent)
@@ -120,23 +120,23 @@ test('docked fitting preserves normal and collapsed layouts and minimum window s
 test('window callbacks snap every resized edge, honor disabled snapping and preserve dock fitting',()=>{
  const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),{EventEmitter}=require('node:events')
  const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
- const declarations=['healthWidgetSize','snapDesktopModuleBounds','bindDesktopWidgetMovement'].map(name=>{
+ const declarations=['snapDesktopModuleBounds','bindDesktopWidgetMovement'].map(name=>{
   const statement=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration=>ts.isIdentifier(declaration.name) && declaration.name.text===name))
   assert.ok(statement,`${name} exists`)
   return statement.getText(ast)
  }).join(';')
  const compiled=ts.transpileModule(declarations+';module.exports=bindDesktopWidgetMovement',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
- function windowCase(docked,{raw={x:0,y:0,width:1200,height:400},neighbors=[],snapMode='none',minimum=[300,160]}={}){
+ function windowCase(docked,{id='todos',raw={x:0,y:0,width:1200,height:400},neighbors=[],snapMode='none',minimum=[300,160]}={}){
   const applied=[],window=new EventEmitter()
   let bounds=raw,prevented=0,persisted=0
   Object.assign(window,{isDestroyed:()=>false,isVisible:()=>true,getBounds:()=>bounds,getMinimumSize:()=>minimum,setBounds:next=>{bounds=next;applied.push(next)}})
-  const context={module:{exports:null},...loadTypeScript('src/main/widget-snap.ts'),...loadTypeScript('src/main/widget-docking.ts'),
+  const context={module:{exports:null},healthWidgetSize:loadTypeScript('src/main/desktop-panels.ts').healthWidgetSize,...loadTypeScript('src/main/widget-snap.ts'),...loadTypeScript('src/main/widget-docking.ts'),
    screen:{getDisplayNearestPoint:()=>({workArea:{x:0,y:0,width:1366,height:728}})},
-   store:{data:{settings:{snapMode,desktopSnapDistance:10},desktopModules:docked?[{id:'health',kind:'health',visible:true,x:0,y:0,width:300,height:108,dock:{parentId:'todos',edge:'right',offset:0}}]:[]}},
-   desktopModuleWindows:new Map([['todos',window],...neighbors.map((neighbor,index)=>[`neighbor-${index}`,{isDestroyed:()=>Boolean(neighbor.destroyed),isVisible:()=>neighbor.visible!==false,getBounds:()=>neighbor.bounds}])]),desktopZoneWindows:new Map(),resizingDesktopWidgets:new Set(),draggingDesktopWidgets:new Set(),desktopDragOrigins:new Map(),
+   store:{data:{settings:{snapMode,desktopSnapDistance:10},desktopModules:docked?[{id:'health',kind:'health',visible:true,x:0,y:0,width:300,height:80,dock:{parentId:'todos',edge:'right',offset:0}}]:[]}},
+   desktopModuleWindows:new Map([[id,window],...neighbors.map((neighbor,index)=>[`neighbor-${index}`,{isDestroyed:()=>Boolean(neighbor.destroyed),isVisible:()=>neighbor.visible!==false,getBounds:()=>neighbor.bounds}])]),desktopZoneWindows:new Map(),resizingDesktopWidgets:new Set(),draggingDesktopWidgets:new Set(),desktopDragOrigins:new Map(),
    followDockedHealth:()=>{},isDesktopWidgetInteracting:()=>false}
   vm.runInNewContext(compiled,context)
-  context.module.exports('todos',window,new Set(),()=>{persisted++})
+  context.module.exports(id,window,new Set(),()=>{persisted++})
   return {raw,window,applied,event:{preventDefault:()=>{prevented++}},counts:()=>({prevented,persisted})}
  }
  const resize=windowCase(true)
@@ -151,6 +151,9 @@ test('window callbacks snap every resized edge, honor disabled snapping and pres
  ordinary.window.emit('will-resize',ordinary.event,ordinary.raw,{edge:'right'})
  assert.deepEqual(ordinary.applied,[])
  assert.deepEqual(ordinary.counts(),{prevented:0,persisted:0})
+ const health=windowCase(false,{id:'health',raw:{x:400,y:300,width:700,height:296},minimum:[300,80]})
+ health.window.emit('resize')
+ assert.deepEqual(health.applied.map(bounds=>({...bounds})),[{x:400,y:300,width:300,height:80}])
  for(const [edge,raw,neighbor,expected] of resizeSnapCases){
   const resize=windowCase(false,{raw,neighbors:[{bounds:neighbor}],snapMode:'edge'})
   resize.window.emit('will-resize',resize.event,raw,{edge})

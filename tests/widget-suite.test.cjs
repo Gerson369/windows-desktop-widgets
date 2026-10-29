@@ -94,11 +94,20 @@ test('layout backups include disabled new widgets and project zones without reve
   const backup=captureWidgetLayout(data,'backup','test','2026-10-19T00:00:00Z')
   assert.equal(validWidgetLayout(backup),true)
   const compact=structuredClone(backup)
-  compact.modules.push({id:'health',x:0,y:0,width:300,height:108,collapsed:false,visible:true,preferredBounds:{x:0,y:0,width:300,height:108}})
+  compact.modules.push({id:'health',x:0,y:0,width:300,height:80,collapsed:false,visible:true,preferredBounds:{x:0,y:0,width:300,height:80}})
   assert.equal(validWidgetLayout(compact),true)
-  compact.modules.at(-1).height=107
+  compact.modules.at(-1).height=79
   assert.equal(validWidgetLayout(compact),false)
-  compact.modules.at(-1).height=108
+  compact.modules.at(-1).height=80
+  compact.modules.at(-1).preferredBounds.height=79
+  assert.equal(validWidgetLayout(compact),false)
+  for(const legacyHeight of [108,128]){
+    compact.modules.at(-1).height=legacyHeight
+    compact.modules.at(-1).preferredBounds.height=legacyHeight
+    assert.equal(validWidgetLayout(compact),true)
+  }
+  compact.modules.at(-1).height=80
+  compact.modules.at(-1).preferredBounds.height=80
   compact.modules.at(-1).id='notes'
   assert.equal(validWidgetLayout(compact),false)
 
@@ -141,6 +150,23 @@ test('upgrading legacy data retains the original file and invalid suite imports 
   await fs.writeFile(invalidPath,JSON.stringify(invalid))
   await assert.rejects(store.importFrom(invalidPath),/字号/)
   assert.equal(store.data.todos[0].id,'keep')
+})
+
+test('health preferred bounds keep compact and legacy sizes without loosening ordinary panel minimums',async()=>{
+  const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os')
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'gerson-health-bounds-'))
+  const {DataStore}=loadTypeScript('src/main/store.ts',{electron:{app:{getPath:()=>directory}}})
+  for(const height of [80,108,128,79]){
+    const data=defaultData(),bounds={x:10,y:20,width:300,height}
+    data.desktopModules.push({id:'health',kind:'health',title:'健康提醒',visible:true,collapsed:false,...bounds,preferredBounds:{...bounds},dock:{parentId:'todos',edge:'bottom',offset:0}})
+    data.desktopModules[0].preferredBounds={x:30,y:40,width:300,height:80}
+    await fs.writeFile(path.join(directory,'toolbox-data.json'),JSON.stringify(data))
+    const store=new DataStore(),restored=await store.init(directory)
+    const health=restored.desktopModules.find(module=>module.id==='health')
+    assert.deepEqual(health.preferredBounds,height>=80?bounds:undefined)
+    assert.deepEqual(health.dock,{parentId:'todos',edge:'bottom',offset:0})
+    assert.equal(restored.desktopModules[0].preferredBounds,undefined)
+  }
 })
 
 

@@ -1,5 +1,5 @@
 import { captureWellnessUndo, validateWellnessUndo, type WellnessUndo } from './wellness-undo'
-import { desktopPanels, setPanelVisibility, assistantTools, assistantDetailTools } from './desktop-panels'
+import { desktopPanels, setPanelVisibility, assistantTools, assistantDetailTools, healthWidgetSize } from './desktop-panels'
 import { defaultSuite, validateSuite, extraWidgetKinds, widgetTitles, changeFocus, focusRemaining, type WidgetSuite } from './widget-suite'
 import { agenda, validateCalendar } from './calendar-service'
 import { readFile, stat } from 'node:fs/promises'
@@ -256,8 +256,6 @@ const hideQuickSearchWindow = (): void => {
   }
 }
 
-const healthWidgetSize = {width:300,height:108}
-
 const desktopModuleBounds = (module: DesktopModule): Electron.Rectangle => {
   const raw = {
   x: Math.round(module.x),
@@ -380,7 +378,7 @@ const refreshDesktopModules = async (): Promise<void> => {
         hasShadow: false,
         resizable: module.kind!=='health' && !module.collapsed,
         minWidth: 300,
-        minHeight: module.kind==='health' ? 108 : 42,
+        minHeight: module.kind==='health' ? healthWidgetSize.height : 42,
         maxWidth: module.kind==='health' ? healthWidgetSize.width : undefined,
         maxHeight: module.kind==='health' ? healthWidgetSize.height : undefined,
         skipTaskbar: true,
@@ -409,7 +407,7 @@ const refreshDesktopModules = async (): Promise<void> => {
     }
     applyingDesktopModuleBounds.add(module.id)
     if(module.kind==='health')window.setMaximumSize(healthWidgetSize.width,healthWidgetSize.height)
-    window.setMinimumSize(300, module.kind==='health' ? 108 : module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : module.kind === 'quick' ? 280 : 160)
+    window.setMinimumSize(300, module.kind==='health' ? healthWidgetSize.height : module.collapsed && !hoverExpandedModules.has(module.id) ? 42 : module.kind === 'quick' ? 280 : 160)
     if (!isDesktopWidgetInteracting(module.id)) window.setBounds(desktopModuleBounds(module))
     window.setResizable(module.kind!=='health' && !module.collapsed)
     applyingDesktopModuleBounds.delete(module.id)
@@ -1991,9 +1989,9 @@ app.whenReady().then(async () => {
     migrateDesktopCollection(data, area)
     if(!data.desktopModules.some(module=>module.kind==='health')){
       const assistant=data.desktopModules.find(module=>module.kind==='todos')!
-      assistant.height=Math.min(assistant.height,Math.max(160,area.y+area.height-assistant.y-144))
+      assistant.height=Math.min(assistant.height,Math.max(160,area.y+area.height-assistant.y-healthWidgetSize.height-36))
       assistant.preferredBounds={x:assistant.x,y:assistant.y,width:assistant.width,height:assistant.height}
-      data.desktopModules.push({id:'health',kind:'health',title:'喝水与活动',visible:true,collapsed:false,x:assistant.x,y:assistant.y+assistant.height,width:300,height:108,dock:{parentId:'todos',edge:'bottom',offset:0},displayId:screen.getPrimaryDisplay().id})
+      data.desktopModules.push({id:'health',kind:'health',title:'喝水与活动',visible:true,collapsed:false,x:assistant.x,y:assistant.y+assistant.height,...healthWidgetSize,dock:{parentId:'todos',edge:'bottom',offset:0},displayId:screen.getPrimaryDisplay().id})
     }
     const health=data.desktopModules.find(module=>module.kind==='health')
     if(health){
