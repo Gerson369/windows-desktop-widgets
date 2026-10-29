@@ -26,6 +26,7 @@ const paths: Record<string, string> = {
   file: 'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h6',
   plus: 'M12 5v14 M5 12h14',
   close: 'M6 6l12 12 M18 6 6 18',
+  undo: 'M9 5 4 10l5 5 M4 10h9a7 7 0 0 1 7 7v2',
   check: 'M5 12l4 4L19 6'
 }
 </script>

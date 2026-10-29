@@ -12,14 +12,14 @@ const { descriptor } = parse(fs.readFileSync('src/renderer/components/WellnessCo
 const script = compileScript(descriptor, { id: 'health-goal-test' })
 const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
 
-async function goalEditor({ failSave = false, saveGate } = {}) {
+async function goalEditor({ failSave = false, saveGate, failUndo = false, undoGate } = {}) {
   const props = vue.reactive({ data: {
     settings: { hydrationPlan: { enabled: true, goalMl: 2000, cupMl: 250, start: '09:00', end: '17:00' }, hydrationReminderEnabled: true, hydrationIntervalMinutes: 30 },
     hydrationDay: { date: '2026-10-29', consumedMl: 750, lastCupAt: 1793236500000, recordIds: ['existing-record'] }
   } })
-  const calls = []
+  const calls = [], undoCalls = []
   const counts = { reads: 0, opens: 0, closes: 0, focuses: 0, selections: 0 }
-  let rejectNextSave = failSave
+  let rejectNextSave = failSave, rejectNextUndo = failUndo
   const toolbox = { wellness: {
     setHydrationGoal: async value => {
       calls.push(value)
@@ -28,7 +28,13 @@ async function goalEditor({ failSave = false, saveGate } = {}) {
       props.data.settings.hydrationPlan.goalMl = value
       return props.data
     },
-    get: async () => { counts.reads++; throw Error('status refresh unavailable') }
+    get: async () => { counts.reads++; throw Error('status refresh unavailable') },
+    undo: async id => {
+      undoCalls.push(id)
+      if (undoGate) await undoGate
+      if (rejectNextUndo) { rejectNextUndo = false; throw Error('Error invoking remote method: disk full') }
+      return { state: {}, paused: false, now: Date.now() }
+    }
   } }
   const context = { exports: {}, Error, Date, require: id => {
     if (id === 'vue') return vue
@@ -49,7 +55,7 @@ async function goalEditor({ failSave = false, saveGate } = {}) {
   }, props: component.props }, props))
   state.goalEditor.value = { showModal() { counts.opens++ }, close() { counts.closes++ } }
   state.goalInput.value = { focus() { counts.focuses++ }, select() { counts.selections++ } }
-  return { state, props, calls, counts }
+  return { state, props, calls, counts, undoCalls }
 }
 
 test('invalid goal drafts stay editable and never reach the save API', async () => {
@@ -153,4 +159,61 @@ test('opening selects the current saved goal and cancellation leaves data intact
   assert.equal(editor.calls.length, 0)
   assert.equal(editor.props.data.settings.hydrationPlan.goalMl, 2800)
   assert.equal(JSON.stringify(editor.props.data.hydrationDay), dayBefore)
+})
+
+test('failed undo retains the active operation for retry and keeps technical errors out of the icon area', async () => {
+  const editor = await goalEditor({ failUndo: true })
+  const now = Date.now(), dayBefore = JSON.stringify(editor.props.data.hydrationDay)
+  editor.state.snapshot.value = { state: {}, paused: false, now, undo: { id: 'recent', kind: 'hydration', expiresAt: now + 15000 } }
+  await editor.state.undoCompletion()
+  assert.deepEqual(editor.undoCalls, ['recent'])
+  assert.equal(editor.state.snapshot.value.undo.id, 'recent')
+  assert.equal(editor.state.undoFailed.value, true)
+  assert.match(editor.state.receiptLabel.value, /可重试/)
+  assert.equal(editor.state.error.value, '')
+  assert.equal(editor.state.pending.value, false)
+  assert.equal(JSON.stringify(editor.props.data.hydrationDay), dayBefore)
+  await editor.state.undoCompletion()
+  assert.deepEqual(editor.undoCalls, ['recent', 'recent'])
+  assert.equal(editor.state.undoFailed.value, false)
+  assert.equal(editor.state.undo.value, undefined)
+  assert.match(editor.state.feedback.value, /已撤销/)
+  assert.ok(editor.state.undoNoticeUntil.value > editor.state.now.value)
+})
+
+test('pending undo ignores repeated clicks and produces one short confirmation after completion', async () => {
+  let completeUndo
+  const editor = await goalEditor({ undoGate: new Promise(resolve => { completeUndo = resolve }) })
+  const now = Date.now()
+  editor.state.snapshot.value = { state: {}, paused: false, now, undo: { id: 'one-action', kind: 'sedentary', expiresAt: now + 15000 } }
+  const completing = editor.state.undoCompletion()
+  try {
+    await editor.state.undoCompletion()
+    assert.equal(editor.state.pending.value, true)
+    assert.deepEqual(editor.undoCalls, ['one-action'])
+    assert.equal(editor.state.snapshot.value.undo.id, 'one-action')
+  } finally { completeUndo(); await completing }
+  assert.equal(editor.state.pending.value, false)
+  assert.equal(editor.state.undo.value, undefined)
+  assert.ok(editor.state.undoNoticeUntil.value - editor.state.now.value <= 2500)
+  assert.ok(editor.state.undoNoticeUntil.value > editor.state.now.value)
+})
+
+test('the undo ring follows the original deadline and disappears without extending the undo window', async () => {
+  const editor = await goalEditor()
+  const now = Date.now(), expiresAt = now + 15000
+  editor.state.snapshot.value = { state: {}, paused: false, now, undo: { id: 'timed', kind: 'hydration', expiresAt } }
+  editor.state.now.value = now
+  assert.equal(editor.state.undoProgress.value, 1)
+  editor.state.now.value = now + 7500
+  assert.equal(editor.state.undoProgress.value, .5)
+  assert.equal(editor.state.snapshot.value.undo.expiresAt, expiresAt)
+  editor.state.now.value = expiresAt
+  assert.equal(editor.state.undoProgress.value, 0)
+  assert.equal(editor.state.undo.value, undefined)
+  await editor.state.undoCompletion()
+  assert.deepEqual(editor.undoCalls, [])
+  editor.state.undoFailed.value = true
+  assert.match(editor.state.receiptLabel.value, /已无法撤销/)
+  assert.doesNotMatch(editor.state.receiptLabel.value, /可重试/)
 })

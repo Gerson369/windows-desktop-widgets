@@ -27,6 +27,8 @@ const error = ref('')
 const feedback = ref('')
 const menuFeedback=ref(''),menuFailed=ref(false),menuFeedbackUntil=ref(0)
 const pending = ref(false)
+const undoFailed = ref(false)
+const undoNoticeUntil = ref(0)
 const lastDone = ref<ReminderKind | null>(null)
 const feedbackUntil = ref(0)
 const recentlyDone = (kind: ReminderKind) => lastDone.value === kind && now.value < feedbackUntil.value
@@ -43,12 +45,20 @@ const waterEffects = computed(() => waterOverflowEffects(water.value.percent, wa
 const spineEffects = computed(() => healthEffects(spine.value.percent, spine.value.overdue))
 const vertebrae = computed(() => spineSegments(spine.value.progress, spineEffects.value.separation, spineEffects.value.looseness))
 const undo = computed(() => snapshot.value.undo && snapshot.value.undo.expiresAt > now.value ? snapshot.value.undo : undefined)
+const undoProgress = computed(() => undo.value ? Math.max(0, Math.min(1, (undo.value.expiresAt - now.value) / 15000)) : 0)
+const receiptLabel = computed(() => {
+  if (undoFailed.value) return undo.value ? '撤销未完成，可重试' : '此操作已无法撤销'
+  if (undo.value) return undo.value.kind === 'hydration' ? '已记录喝水' : '已完成活动'
+  return '已撤销'
+})
 async function undoCompletion() {
   if (!undo.value || pending.value) return
   pending.value = true
-  try { snapshot.value = await api.wellness.undo(undo.value.id); lastDone.value = null; feedback.value = '已撤销，恢复原来的记录与计时'; error.value = '' }
-  catch (failure) { error.value = failure instanceof Error ? failure.message : '撤销失败' }
-  finally { pending.value = false }
+  undoFailed.value = false
+  error.value = ''; feedback.value = ''
+  try { snapshot.value = await api.wellness.undo(undo.value.id); lastDone.value = null; feedback.value = '已撤销，恢复原来的记录与计时' }
+  catch { undoFailed.value = true }
+  finally { pending.value = false; now.value = Date.now(); undoNoticeUntil.value = now.value + 2500 }
 }
 const label = (kind: ReminderKind): string => {
   if (kind === 'hydration' && plan.value?.status === 'complete') return '今日目标已完成，仍可记录实际喝水量'
@@ -70,6 +80,7 @@ async function context(kind: ReminderKind) {
 async function action(kind: ReminderKind, mode: 'done' | 'snooze' | 'enable', recording?: HydrationRecording) {
   if (pending.value) return false
   pending.value = true
+  undoFailed.value = false; undoNoticeUntil.value = 0
   error.value = ''
   feedback.value = '';menuFeedback.value=''
   try {
@@ -135,11 +146,10 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
 <template>
   <section class="wellness-controls" :class="{'physics-active':physicsActive}" aria-label="健康互动">
     <HealthPhysics :cup="cupSvg" :spine="spineSvg" :wet="water.overdue" :spill="waterEffects.spill" :flooding="waterEffects.flood" :separation="spineEffects.separation" :paused="snapshot.paused" :bone-color="spineEffects.color || '#c1e4bb'" @enabled="physicsActive=$event" @pieces="fallingBones=$event"/>
-    <div v-if="undo" class="health-receipt" role="status"><span>{{ undo.kind === 'hydration' ? '已记录喝水' : '已完成活动' }}</span><button :disabled="pending" aria-label="撤销最近的健康操作" @click="undoCompletion">撤销 · {{ Math.max(1,Math.ceil((undo.expiresAt-now)/1000)) }}秒</button></div>
     <div class="health-control activity-control">
     <button class="health-icon spine-icon" :style="{'--overdue-color':spineEffects.color}" :class="{ disabled: !enabled('sedentary'), overdue: spine.overdue }" :disabled="pending" :title="`点击完成活动；${label('sedentary')}。右键设置`" aria-label="完成活动" aria-haspopup="menu" @click="complete('sedentary')" @keydown.shift.f10.prevent="context('sedentary')" @contextmenu.prevent="context('sedentary')">
       <svg ref="spineSvg" class="spine-visual" viewBox="4 0 34 51" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><path class="spine-outline" :opacity="1-spineEffects.separation" :d="`M21 4 Q${21 + spine.progress * 20} 27 21 51`" fill="none" stroke="currentColor" stroke-width="1.4"/><g v-for="(bone,i) in vertebrae" :key="i" class="vertebra" :class="{loose:bone.looseness>0 && !fallingBones.includes(i)}" :style="{'--shake-distance':`${.15+bone.looseness*.7}px`,'--shake-angle':`${1+bone.looseness*7}deg`,'--shake-duration':`${1.2-bone.looseness*.7}s`}"><rect :x="bone.x" :y="bone.y" width="8" :height="bone.height" rx="1" :class="{separated:bone.separated,falling:fallingBones.includes(i)}" :transform="`rotate(${bone.angle} ${bone.x+4} ${bone.y+bone.height/2})`" fill="currentColor"/></g><path :opacity="1-spineEffects.separation" d="M14 51q7-4 14 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-      <span>活动<small>{{ recentlyDone('sedentary') ? '已活动' : enabled('sedentary') ? `${spine.percent}%` : '—' }}</small></span><i v-if="spine.overdue" aria-hidden="true"/>
+      <span>活动<small><AssistantIcon v-if="recentlyDone('sedentary')" name="check" class="activity-done"/><template v-else>{{ enabled('sedentary') ? `${spine.percent}%` : '—' }}</template></small></span><i v-if="spine.overdue" aria-hidden="true"/>
     </button>
     </div>
     <div class="health-control hydration-control">
@@ -159,6 +169,13 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       <span>喝水<small>{{ currentCupMl }}ml</small></span><i v-if="water.overdue" aria-hidden="true"/>
     </button>
     </div>
+    <div v-if="undo || now < undoNoticeUntil" class="health-receipt" :class="{'receipt-failed':undoFailed}" role="group" aria-label="最近一次健康操作">
+      <span class="receipt-caption" role="img" :aria-label="receiptLabel" :title="receiptLabel"><AssistantIcon :name="undoFailed ? 'close' : 'check'"/></span>
+      <button v-if="undo" type="button" :disabled="pending" aria-label="撤销最近的健康操作" :title="undoFailed ? '撤销未完成，点击重试' : '撤销最近一次操作（15 秒内）'" @click="undoCompletion">
+        <svg class="receipt-timer" viewBox="0 0 24 24" aria-hidden="true"><circle class="timer-track" cx="12" cy="12" r="10"/><circle class="timer-left" cx="12" cy="12" r="10" pathLength="1" stroke-dasharray="1" :stroke-dashoffset="1-undoProgress" transform="rotate(-90 12 12)"/></svg>
+        <AssistantIcon :name="undoFailed ? 'refresh' : 'undo'"/>
+      </button>
+    </div>
     <dialog ref="goalEditor" class="health-popover goal-editor" aria-labelledby="bottle-goal-heading" :aria-busy="pending" @cancel.prevent="closeGoalEditor" @close="goalTrigger?.focus({preventScroll:true})">
     <form @submit.prevent="saveGoal">
       <div class="goal-editor-heading"><label id="bottle-goal-heading" for="bottle-hydration-goal">每日饮水目标</label><button type="button" class="goal-editor-close" aria-label="取消设置" title="取消设置（Esc）" :disabled="pending" @click="closeGoalEditor"><AssistantIcon name="close"/></button></div>
@@ -166,7 +183,7 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       <p id="bottle-goal-message" class="goal-editor-message" :class="{'goal-editor-error':goalError}" :role="goalError ? 'alert' : undefined">{{ goalError || '500–5000 ml · 保留已喝水量' }}</p>
     </form>
     </dialog>
-    <span class="health-feedback" role="status">{{ feedback }}</span><span v-if="error" class="health-error" role="alert">{{ error }}</span><span v-else-if="menuFeedback && (menuFailed || now<menuFeedbackUntil)" class="health-error" :class="{'health-success':!menuFailed}" :role="menuFailed?'alert':'status'">{{menuFeedback}}</span>
+    <span class="health-feedback" :role="undoFailed ? 'alert' : 'status'">{{ undoFailed ? receiptLabel : feedback }}</span><span v-if="error" class="health-error" role="alert">{{ error }}</span><span v-else-if="menuFeedback && (menuFailed || now<menuFeedbackUntil)" class="health-error" :class="{'health-success':!menuFailed}" :role="menuFailed?'alert':'status'">{{menuFeedback}}</span>
   </section>
 </template>
 
@@ -200,7 +217,16 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
 
 .physics-active .spine-visual rect.falling{visibility:hidden}
 
-.health-receipt{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);z-index:9;display:flex;align-items:center;justify-content:space-between;min-height:22px;gap:8px;padding:5px 8px;border:1px solid #ffffff30;border-radius:4px;background:#25342cf2;color:#d4eadc;font-size:11px}.health-receipt button{padding:3px 0;border:0;background:transparent;color:#bce9cc;font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.health-receipt button:disabled{opacity:.5}
+.health-receipt{position:absolute;right:6px;bottom:2px;z-index:40;display:flex;align-items:center;height:26px;gap:4px;padding:0 4px;border:1px solid #ffffff24;border-radius:5px;background:#202a25f5;color:#bce9cc;cursor:default}
+.wellness-controls:has(.goal-editor[open]) .health-receipt{visibility:hidden}
+.receipt-caption{display:grid;place-items:center;width:16px;height:22px}
+.health-receipt svg{width:13px;height:13px;flex:none}
+.receipt-failed .receipt-caption,.receipt-failed .receipt-caption>svg{color:#ffd0c7}
+.health-receipt button{position:relative;display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:#bce9cc;cursor:pointer}
+.health-receipt button:hover:not(:disabled){background:#ffffff12}.health-receipt button:active:not(:disabled){background:#ffffff20}.health-receipt button:disabled{opacity:.5;cursor:wait}
+.wellness-controls .health-receipt button:focus-visible{outline:2px solid #c5e6ce;outline-offset:-2px}
+.health-receipt .receipt-timer{position:absolute;inset:0;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.2;pointer-events:none}
+.timer-track{opacity:.18}.timer-left{transition:stroke-dashoffset .2s linear}
 
 
 .health-error{position:absolute;bottom:100%;left:8px;right:8px;padding:7px;background:#25342c;color:#ffd0c7;font-size:11px}.health-icon>span{min-width:32px}
@@ -221,12 +247,13 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
 @keyframes wave { from { transform:translateX(0); } to { transform:translateX(-28px); } }
 
 .water-fill{transition:transform 1s linear}
-.wellness-controls{user-select:none;position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:end;align-content:center;gap:8px;flex:0 0 auto;padding:10px 10px 16px;border-top:1px solid #ffffff14;color:#c2d8ca}
+.wellness-controls{user-select:none;position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:end;align-content:center;gap:8px;flex:0 0 auto;padding:6px 10px 28px;border-top:1px solid #ffffff14;color:#c2d8ca}
 .wellness-controls:has(.daily-reservoir){grid-template-columns:minmax(68px,.85fr) minmax(108px,1.4fr) minmax(70px,.9fr)}
 .health-icon{min-width:0;position:relative;display:flex;align-items:flex-end;justify-content:center;gap:5px;padding:4px 0 8px;border:0;border-radius:5px;background:transparent;color:inherit;cursor:pointer;font:inherit;font-size:11px}
 .health-icon svg{width:34px;height:40px;flex:none;overflow:visible}
 .health-icon .spine-visual{width:30px;height:54px}
 .health-icon .water-cup{width:32px}
+.health-icon .activity-done{display:block;width:14px;height:15px;margin:auto}
 .health-icon>span{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-width:30px;padding-bottom:3px;line-height:14px;text-align:center;white-space:nowrap}
 .health-icon small{display:block;margin:0;color:currentColor;font-size:12px;font-weight:500;line-height:15px;font-variant-numeric:tabular-nums}
 .daily-reservoir:hover:not(:disabled),.health-icon:hover:not(:disabled){background:#ffffff08;filter:brightness(1.08)}
