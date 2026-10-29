@@ -17,7 +17,7 @@ export type AssistantToolId = typeof assistantTools[number]['id'] | typeof assis
 export function desktopPanels(modules: DesktopModule[]): DesktopModule[] {
   const legacyToolsVisible = modules.some(module => !['quick','todos','health'].includes(module.kind) && module.visible)
   return modules.filter(module => ['quick','todos','health'].includes(module.kind)).map(module => module.kind === 'todos'
-    ? { ...module, title: '综合助手', visible: module.visible || legacyToolsVisible }
+    ? { ...module, title: '桌面搭子', visible: module.visible || legacyToolsVisible }
     : { ...module })
 }
 

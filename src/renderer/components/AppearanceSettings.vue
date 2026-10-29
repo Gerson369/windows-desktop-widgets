@@ -80,7 +80,7 @@ function stepFont(step: number) {
       <div class="preview-widget preview-collection"><b>桌面收纳</b><div class="preview-files">
         <span><AssistantIcon name="folder"/>工作资料</span><span><AssistantIcon name="file"/>文档</span><span><AssistantIcon name="folder"/>图片</span>
       </div></div>
-      <div class="preview-widget preview-assistant"><b>综合助手</b><strong>10:24</strong><span><i/>整理工作资料</span><span><i/>查看会议安排</span></div>
+      <div class="preview-widget preview-assistant"><b>桌面搭子</b><strong>10:24</strong><span><i/>整理工作资料</span><span><i/>查看会议安排</span></div>
     </div>
   </section>
   <section class="settings-card appearance-controls">
@@ -106,7 +106,7 @@ function stepFont(step: number) {
     </div></div>
     <template v-for="group in saveGroups" :key="group"><p v-if="errors[group]" class="settings-error" role="alert">{{ errors[group] }} <button v-if="retries[group]" class="settings-link" :disabled="pending[group]" @click="commit(group, retries[group]!)">重试</button></p></template>
   </section>
-  <p class="settings-hint appearance-scope"><AssistantIcon name="check"/>同时应用到桌面收纳与综合助手。</p>
+  <p class="settings-hint appearance-scope"><AssistantIcon name="check"/>同时应用到桌面收纳与桌面搭子。</p>
 </template>
 <style scoped>
 .appearance-preview{position:relative;overflow:hidden;background:#30383e!important;isolation:isolate}

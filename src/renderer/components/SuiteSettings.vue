@@ -75,7 +75,7 @@ async function loadDisplays() {
 }
 
 async function restoreLayout() {
-  if (!confirm('将桌面收纳和综合助手移至主显示器右侧，显示这两个组件，并按屏幕调整尺寸。继续？')) return '已取消恢复布局'
+  if (!confirm('将桌面收纳和桌面搭子移至主显示器右侧，显示这两个组件，并按屏幕调整尺寸。继续？')) return '已取消恢复布局'
   await api.suite.visibility('resetLayout')
   return '已恢复右侧布局'
 }
@@ -124,7 +124,7 @@ onMounted(async () => {
         </div>
       </section>
       <div class="settings-actions desktop-actions">
-        <button type="button" class="settings-primary" @click="emit('return')"><AssistantIcon name="expand"/>打开综合助手</button>
+        <button type="button" class="settings-primary" @click="emit('return')"><AssistantIcon name="expand"/>打开桌面搭子</button>
         <button type="button" class="secondary" :disabled="busy" @click="perform(() => api.suite.visibility('toggle'), '正在切换组件显隐…', '已切换组件临时显隐')">临时显示 / 隐藏</button>
       </div>
       <section class="settings-card behavior-card">
@@ -141,13 +141,13 @@ onMounted(async () => {
         <div class="shortcut-heading"><div><span>呼出 / 收起助手</span><p class="settings-hint">面板内按 Esc 收起。</p></div><button ref="shortcutButton" type="button" class="secondary" :aria-expanded="editingShortcut" :disabled="busy" @click="toggleShortcutEditor">{{ editingShortcut ? '取消' : '修改' }}</button></div>
         <div class="shortcut-keys" aria-label="当前快捷键"><template v-for="(key, index) in displayShortcut" :key="index"><span v-if="index" aria-hidden="true">+</span><kbd>{{ key }}</kbd></template></div>
         <form v-if="editingShortcut" class="shortcut-editor" @submit.prevent="perform(setShortcut)" @keydown.esc.stop.prevent="toggleShortcutEditor">
-          <label class="settings-field">组合键<input ref="shortcutInput" v-model="shortcut" maxlength="100" aria-label="综合助手快捷键" placeholder="Ctrl+Shift+Space" :disabled="busy" required/></label>
+          <label class="settings-field">组合键<input ref="shortcutInput" v-model="shortcut" maxlength="100" aria-label="桌面搭子快捷键" placeholder="Ctrl+Shift+Space" :disabled="busy" required/></label>
           <p class="settings-hint">用 + 连接按键，例如 Ctrl+Shift+Space。</p>
           <button class="settings-primary" type="submit" :disabled="busy || !shortcut.trim()">保存快捷键</button>
         </form>
       </section>
       <section class="settings-card layout-card">
-        <div><h3>恢复右侧布局</h3><p class="settings-hint">在主显示器重新摆放桌面收纳和综合助手。</p></div>
+        <div><h3>恢复右侧布局</h3><p class="settings-hint">在主显示器重新摆放桌面收纳和桌面搭子。</p></div>
         <button type="button" class="settings-link restore-button" :disabled="busy" @click="perform(restoreLayout, '正在恢复布局…')"><AssistantIcon name="refresh"/>恢复</button>
       </section>
     </template>

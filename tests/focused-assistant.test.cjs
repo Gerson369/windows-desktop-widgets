@@ -6,31 +6,80 @@ const path = require('node:path')
 const {loadTypeScript}=require('./load-typescript.cjs')
 const { createCategoryLayoutPlan, decodeNativeOutput } = loadTypeScript('src/main/desktop-layout.ts')
 const { normalizeReminderSettings, tickReminders, resumeReminderClocks } = loadTypeScript('src/main/wellness-reminders.ts')
-const { defaultHydrationPlan, validateHydrationPlan, hydrationTimes, hydrationDayAt, hydrationPlanClock, hydrationPlanSnapshot } = loadTypeScript('src/main/hydration-plan.ts')
-test('daily water plan distributes cups and validates custom schedule', () => {
+const { defaultHydrationPlan, validateHydrationPlan, hydrationTimes, hydrationDayAt, hydrationPlanClock, hydrationPlanSnapshot, recordHydration } = loadTypeScript('src/main/hydration-plan.ts')
+test('daily water plan retains legacy schedules without coupling them to new reminder timing', () => {
   const plan = validateHydrationPlan({...defaultHydrationPlan,enabled:true})
   assert.equal(hydrationTimes(plan).length,8)
-  assert.equal(plan.times[0],'10:13')
+  assert.equal(hydrationTimes(plan)[0],'10:13')
   assert.deepEqual(hydrationTimes({...plan,cupMl:0}),[])
-  const times=[...plan.times]; times[0]='09:30'
-  assert.equal(validateHydrationPlan({...plan,times}).times[0],'09:30')
-  for(const patch of [{goalMl:0},{cupMl:NaN},{end:'08:00'},{times:['23:59']},{times:Array(8).fill('10:00')}]) assert.throws(()=>validateHydrationPlan({...plan,...patch}))
+  assert.deepEqual(validateHydrationPlan({...plan,times:['09:30']}).times,['09:30'])
+  assert.equal(validateHydrationPlan({...plan,start:'19:50'}).start,'19:50')
+  for(const patch of [{goalMl:0},{cupMl:NaN},{end:'08:00'},{times:['25:00']},{times:Array(101).fill('10:00')}]) assert.throws(()=>validateHydrationPlan({...plan,...patch}))
 })
-test('daily water clock skips missed slots, retains overdue/snooze and stops at day end or goal', () => {
+test('daily water clock divides remaining time and cups, retains running clocks and stops at day end or goal', () => {
   const at=(h,m=0)=>new Date(2026,9,19,h,m).getTime()
   const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true})
   const day=hydrationDayAt(undefined,at(9))
   const clock=hydrationPlanClock(plan,day,undefined,at(12))
-  assert.equal(clock.dueAt,at(12,40))
+  assert.equal(clock.dueAt,at(12)+(at(20)-at(12))/9)
   assert.equal(hydrationPlanClock(plan,day,clock,at(13)),clock)
   assert.equal(hydrationPlanClock(plan,day,undefined,at(20)),undefined)
-  assert.equal(hydrationPlanClock(plan,day,undefined,at(8)),undefined)
+  assert.equal(hydrationPlanClock(plan,day,undefined,at(8)).startedAt,at(9))
   const completed={...day,consumedMl:250,completedTimes:['12:40']}
-  assert.equal(hydrationPlanClock(plan,completed,undefined,at(12)).dueAt,at(13,53))
+  assert.equal(hydrationPlanClock(plan,completed,undefined,at(12)).dueAt,at(13))
   assert.equal(hydrationPlanClock(plan,{...day,consumedMl:2000},clock,at(13)),undefined)
   assert.equal(hydrationPlanSnapshot(plan,{...day,consumedMl:1900},at(13)).nextCupMl,100)
   assert.equal(hydrationDayAt(completed,new Date(2026,9,20,9).getTime()).consumedMl,0)
   assert.deepEqual(hydrationDayAt(completed,at(15)),completed)
+})
+test('actual water records work in both modes at any hour, exceed the target and deduplicate each confirmation',()=>{
+  const at=hour=>new Date(2026,9,29,hour).getTime()
+  const day={...hydrationDayAt(undefined,at(8)),consumedMl:4900,completedTimes:['07:30'],lastCupAt:at(7)}
+  const before=structuredClone(day)
+  for(const enabled of [false,true])for(const now of [at(8),at(12),at(22)]){
+    const plan={...defaultHydrationPlan,enabled},saved=recordHydration(plan,day,1500,now,'confirmed-cup')
+    assert.equal(saved.consumedMl,6400)
+    assert.equal(saved.lastCupAt,now)
+    assert.deepEqual(saved.completedTimes,day.completedTimes)
+    assert.deepEqual(saved.recordIds,['confirmed-cup'])
+    assert.deepEqual(recordHydration(plan,saved,1500,now+1000,'confirmed-cup'),saved)
+    assert.equal(hydrationDayAt(saved,now+1000).consumedMl,6400)
+  }
+  assert.deepEqual(day,before)
+})
+test('actual water records validate amounts and identifiers and never silently truncate the daily limit',()=>{
+  const now=new Date(2026,9,29,12).getTime(),plan={...defaultHydrationPlan,enabled:true}
+  const day={...hydrationDayAt(undefined,now),consumedMl:99900}
+  for(const amount of [0,-1,1.5,NaN,Infinity,2001,'250'])assert.throws(()=>recordHydration(plan,day,amount,now,'valid-id'))
+  for(const id of ['',null,'white space','../path','x'.repeat(101)])assert.throws(()=>recordHydration(plan,day,100,now,id))
+  const saved=recordHydration(plan,day,100,now,'valid-id')
+  assert.equal(saved.consumedMl,100000)
+  assert.deepEqual(recordHydration(plan,saved,100,now+1000,'valid-id'),saved)
+  assert.throws(()=>recordHydration(plan,saved,1,now+1000,'another-id'),/100000/)
+  assert.equal(day.consumedMl,99900)
+  assert.throws(()=>recordHydration(plan,day,1,NaN,'valid-id'),/时间/)
+})
+test('daily normalization retains legacy history and valid confirmation ids but resets them on the next day',()=>{
+  const now=new Date(2026,9,29,12).getTime(),day={...hydrationDayAt(undefined,now),consumedMl:6000,completedTimes:['10:00'],lastCupAt:now,recordIds:['a','a','../bad','b']}
+  assert.deepEqual(hydrationDayAt(day,now),{...day,recordIds:['a','b']})
+  const tomorrow=hydrationDayAt(day,now+86400000)
+  assert.equal(tomorrow.consumedMl,0);assert.deepEqual(tomorrow.completedTimes,[])
+  assert.equal(tomorrow.lastCupAt,undefined);assert.equal(tomorrow.recordIds,undefined)
+})
+test('actual drinks redistribute only the remaining cups and short windows never create catch-up bursts',()=>{
+  const at=(h,m=0)=>new Date(2026,9,29,h,m).getTime()
+  const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true,times:['09:10']})
+  const day=hydrationDayAt(undefined,at(9)),initial=hydrationPlanClock(plan,day,undefined,at(12))
+  const early=recordHydration(plan,day,1000,at(12,10),'early')
+  const reflowed=hydrationPlanClock(plan,early,initial,at(12,10))
+  assert.equal(reflowed.startedAt,at(12,10));assert.equal(reflowed.dueAt,at(13,44))
+  const late=recordHydration(plan,day,1000,at(15),'late')
+  assert.equal(hydrationPlanClock(plan,late,initial,at(15)).dueAt,at(16))
+  assert.equal(hydrationPlanClock({...plan,times:['18:00']},day,initial,at(12,10)),initial)
+  const brief=validateHydrationPlan({...plan,start:'19:50',end:'20:00'})
+  assert.equal(hydrationPlanClock(brief,day,undefined,at(19,50)).intervalMinutes,5)
+  assert.equal(hydrationPlanClock(brief,day,undefined,at(19,55)),undefined)
+  assert.equal(hydrationPlanClock(plan,{...day,consumedMl:2100},initial,at(15)),undefined)
 })
 function iconModule(overrides = {}) {
   const image = value => ({isEmpty:()=>!value, toBitmap:()=>Buffer.from([0,0,0,value ? 255 : 0]), toDataURL:()=>value})
@@ -386,7 +435,25 @@ test('alphabetical and type sorting are deterministic, reversible and never muta
   assert.deepEqual(normalizeCollectionSorts(null).files, { by:'type', direction:'asc' })
 })
 
-const { respondToReminder, reminderVisual, reminderPercent, hydrationReminderVisual } = loadTypeScript('src/main/wellness-reminders.ts')
+const { respondToReminder, reminderVisual, reminderPercent, hydrationReminderVisual, hydrationCupMl } = loadTypeScript('src/main/wellness-reminders.ts')
+test('water cup accumulates whole millilitres and never exceeds its capacity after becoming overdue',()=>{
+  for(const [progress,amount] of [[0,0],[.0039,0],[.004,1],[.01,2],[.5,125],[1,250],[2.5,250],[-1,0]])assert.equal(hydrationCupMl(250,progress),amount)
+  assert.equal(hydrationCupMl(300,.5),150)
+  for(const [capacity,progress] of [[0,1],[-1,1],[NaN,.5],[250,NaN],[250,Infinity]])assert.equal(hydrationCupMl(capacity,progress),0)
+  const clock={startedAt:0,dueAt:30*60_000,intervalMinutes:30}
+  for(const [now,amount] of [[0,0],[15*60_000,125],[30*60_000,250],[60*60_000,250]])assert.equal(hydrationCupMl(250,reminderVisual(clock,now).progress),amount)
+})
+test('a completed daily goal leaves an empty cup in both modes even when an old full clock remains',()=>{
+  const now=new Date(2026,9,29,12).getTime()
+  const clock={startedAt:now-60*60_000,dueAt:now-30*60_000,intervalMinutes:30}
+  for(const enabled of [false,true]){
+    const plan={...defaultHydrationPlan,enabled,goalMl:500}
+    const day={...hydrationDayAt(undefined,now),consumedMl:500}
+    const visual=hydrationReminderVisual({state:{hydration:clock},paused:false,now,hydrationPlan:hydrationPlanSnapshot(plan,day,now)},now)
+    assert.equal(visual.progress,0);assert.equal(visual.percent,0);assert.equal(visual.overdue,false)
+    assert.equal(hydrationCupMl(plan.cupMl,visual.progress),0)
+  }
+})
 test('overdue percentages keep growing while water and spine visuals stay bounded', () => {
   const clock={startedAt:0,dueAt:1800000,intervalMinutes:30}
   for(const [ratio,percent] of [[1,100],[1.01,101],[1.25,125],[2.5,250]]) {
@@ -398,14 +465,16 @@ test('overdue percentages keep growing while water and spine visuals stay bounde
   const done=respondToReminder(enabled,{hydration:clock},'hydration','done',clock.dueAt*2)
   assert.equal(reminderVisual(done.hydration,clock.dueAt*2).percent,1)
 })
-test('unhandled water keeps growing after planned hours, recording clears it and next day resets', () => {
+test('daily water has no historical overflow after reopening but an existing overdue clock keeps growing', () => {
   const at=(h,m=0)=>new Date(2026,9,19,h,m).getTime()
   const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true})
   const day=hydrationDayAt(undefined,at(22))
   let snapshot={state:{},paused:false,now:at(22),hydrationPlan:hydrationPlanSnapshot(plan,day,at(22))}
   assert.equal(snapshot.hydrationPlan.status,'ended')
-  assert.ok(hydrationReminderVisual(snapshot,at(22)).percent>100)
-  assert.equal(hydrationReminderVisual(snapshot,at(22)).overdue,true)
+  assert.equal(snapshot.hydrationPlan.restingProgress,0)
+  assert.equal(snapshot.hydrationPlan.restingClock,undefined)
+  assert.equal(hydrationReminderVisual(snapshot,at(22)).progress,0)
+  assert.equal(hydrationReminderVisual(snapshot,at(22)).overdue,false)
   snapshot.hydrationPlan=hydrationPlanSnapshot(plan,{...day,consumedMl:250,lastCupAt:at(21)},at(22))
   assert.equal(hydrationReminderVisual(snapshot,at(22)).progress,0)
   const next=new Date(2026,9,20,8).getTime()
@@ -415,6 +484,9 @@ test('unhandled water keeps growing after planned hours, recording clears it and
   snapshot={state:{hydration:clock},paused:false,now:middle,hydrationPlan:hydrationPlanSnapshot(plan,day,middle)}
   assert.equal(hydrationReminderVisual(snapshot,middle).percent,50)
   assert.equal(hydrationReminderVisual(snapshot,clock.dueAt).percent,100)
+  snapshot.hydrationPlan=hydrationPlanSnapshot(plan,day,at(22))
+  assert.ok(hydrationReminderVisual(snapshot,at(22)).percent>100)
+  assert.equal(hydrationReminderVisual(snapshot,at(22)).overdue,true)
 })
 test('reading without input keeps both clocks growing and unrelated settings retain their start times', () => {
   const settings={...enabled,hydrationIntervalMinutes:30}
@@ -439,6 +511,26 @@ test('lock and sleep preserve progress and snooze time without mutating the orig
   assert.deepEqual(original,before)
   assert.deepEqual(resumeReminderClocks(original,1000,500),original)
   assert.deepEqual(resumeReminderClocks({},1000,5000),{})
+})
+test('daily plan keeps its snooze, progress and original slot when lock time shifts its deadline',()=>{
+  const at=(h,m=0)=>new Date(2026,9,29,h,m).getTime()
+  const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true,goalMl:500,times:['09:10','10:00']})
+  const day=hydrationDayAt(undefined,at(9))
+  const clock=hydrationPlanClock(plan,day,undefined,at(9,5))
+  const snoozed=respondToReminder({...enabled,hydrationIntervalMinutes:clock.intervalMinutes},{hydration:{...clock,notified:true}},'hydration','snooze',at(9,11))
+  const before=structuredClone(snoozed)
+  const resumed=resumeReminderClocks(snoozed,at(9,12),at(9,22))
+  assert.equal(resumed.hydration.planTime,clock.planTime)
+  assert.equal(resumed.hydration.dueAt,clock.dueAt+10*60_000)
+  assert.equal(resumed.hydration.snoozedUntil,at(9,31))
+  assert.equal(reminderVisual(resumed.hydration,at(9,22)).progress,reminderVisual(snoozed.hydration,at(9,12)).progress)
+  assert.equal(hydrationPlanClock(plan,day,resumed.hydration,at(9,22)),resumed.hydration)
+  assert.deepEqual(snoozed,before)
+  const brief=validateHydrationPlan({...plan,end:'09:20'})
+  const briefClock=hydrationPlanClock(brief,day,undefined,at(9))
+  const shifted=resumeReminderClocks({hydration:briefClock},at(9,1),at(9,18)).hydration
+  assert.ok(shifted.dueAt>at(9,20))
+  assert.equal(hydrationPlanClock(brief,day,shifted,at(9,18)),shifted)
 })
 test('health icons progress to overdue without repeating alerts, snooze once and reset on completion', () => {
   const settings = { ...enabled, hydrationIntervalMinutes:30 }
@@ -629,11 +721,15 @@ test('overdue daily clock retains its original start across schedule end without
   const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true}),day=hydrationDayAt(undefined,at(9))
   const clock=hydrationPlanClock(plan,day,undefined,at(9))
   assert.deepEqual(overdueHydrationClock(plan,day,clock,at(22)),clock)
+  assert.equal(overdueHydrationClock(plan,day,undefined,at(22)),undefined)
   assert.equal(overdueHydrationClock(plan,{...day,lastCupAt:at(21),consumedMl:250},clock,at(22)),undefined)
   const tomorrow=new Date(2026,9,20,22).getTime()
   assert.equal(overdueHydrationClock(plan,day,clock,tomorrow),undefined)
-  const last=hydrationPlanClock(plan,day,undefined,at(19,59))
-  assert.deepEqual(hydrationPlanClock(plan,day,last,at(19,59)+20000),last)
+  const lastPlan=validateHydrationPlan({...defaultHydrationPlan,enabled:true,goalMl:500,times:['09:10','19:59']})
+  const last=hydrationPlanClock(lastPlan,day,undefined,at(19,50))
+  assert.equal(last.dueAt,at(19,55))
+  assert.equal(hydrationPlanClock(lastPlan,day,last,at(19,55)+20000),last)
+  assert.equal(overdueHydrationClock(lastPlan,day,last,at(22)),last)
 })
 
 test('undo restores captured state and rejects expiry, stale tokens, changed settings or newer hydration data',()=>{
@@ -729,17 +825,26 @@ test('gravity accelerates falling pieces, bounces on the floor and settles witho
 })
 
 
-test('daily cup progress resumes from schedule or last drink instead of restarting with the app',()=>{
+test('daily cup starts at each opening time without changing the saved daily history',()=>{
   const at=(h,m=0,s=0)=>new Date(2026,9,22,h,m,s).getTime()
   const plan=validateHydrationPlan({...defaultHydrationPlan,enabled:true,goalMl:500,times:['09:10','10:00']})
   const day=hydrationDayAt(undefined,at(9))
-  const resumed=hydrationPlanClock(plan,day,undefined,at(9,5))
-  assert.equal(resumed.startedAt,at(9))
-  assert.equal(reminderVisual(resumed,at(9,5)).percent,50)
+  const initial=hydrationPlanClock(plan,day,undefined,at(9,5))
+  assert.equal(initial.startedAt,at(9,5))
+  assert.equal(reminderVisual(initial,at(9,5)).progress,0)
+  assert.equal(reminderVisual(initial,at(9,6)).progress,60000/(initial.dueAt-initial.startedAt))
+  assert.equal(hydrationPlanClock(plan,day,initial,at(9,6)),initial)
   const drank={...day,consumedMl:250,completedTimes:['09:10'],lastCupAt:at(9,12,30)}
+  const before=structuredClone({plan,day,drank})
   const afterRestart=hydrationPlanClock(plan,drank,undefined,at(9,15))
-  assert.equal(afterRestart.startedAt,drank.lastCupAt)
-  assert.equal(afterRestart.dueAt,at(10))
-  assert.equal(reminderVisual(afterRestart,at(9,15)).percent,5)
+  assert.equal(afterRestart.startedAt,at(9,15))
+  assert.equal(afterRestart.dueAt,at(9,15)+(at(20)-at(9,15))/2)
+  assert.equal(afterRestart.planTime,'14:37')
+  assert.equal(reminderVisual(afterRestart,at(9,15)).progress,0)
+  assert.equal(hydrationPlanSnapshot(plan,drank,at(9,15)).consumedMl,250)
+  assert.equal(hydrationPlanSnapshot(plan,drank,at(9,15)).restingClock,undefined)
+  assert.equal(hydrationPlanClock(plan,day,undefined,at(9,10)).dueAt,at(9,10)+(at(20)-at(9,10))/3)
+  assert.equal(hydrationPlanClock(plan,day,undefined,at(10)).startedAt,at(10))
   assert.equal(hydrationPlanClock(plan,drank,undefined,at(20)),undefined)
+  assert.deepEqual({plan,day,drank},before)
 })

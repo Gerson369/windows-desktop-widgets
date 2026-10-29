@@ -6,7 +6,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { publicText } from './public-request'
 import { cityWeather, searchCities } from './weather-service'
 import { readMetrics } from './device-metrics'
-import { hydrationDayAt, hydrationPlanSnapshot, hydrationPlanClock, overdueHydrationClock, validateHydrationPlan, hydrationPlanCanRecord } from './hydration-plan'
+import { hydrationDayAt, hydrationPlanSnapshot, hydrationPlanClock, overdueHydrationClock, validateHydrationPlan, recordHydration } from './hydration-plan'
 import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, Tray } from 'electron'
 import { basename, extname, isAbsolute, join } from 'node:path'
 import { existsSync } from 'node:fs'
@@ -25,7 +25,7 @@ import { captureWidgetLayout, applyWidgetLayout } from './widget-layout'
 import { readShellDesktopItems, isDesktopInventoryCurrent, type ShellDesktopItem } from './desktop-shell'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { normalizeReminderSettings, tickReminders, respondToReminder, resumeReminderClocks, type ReminderKind, type ReminderState, type WellnessSnapshot, type ReminderSettings } from './wellness-reminders'
+import { normalizeReminderSettings, tickReminders, respondToReminder, resumeReminderClocks, hydrationCupMl, hydrationReminderVisual, type ReminderKind, type ReminderState, type WellnessSnapshot, type ReminderSettings } from './wellness-reminders'
 import { applyBackup, createCategoryLayoutPlan, getDesktopStatus, readDesktopLayout, refreshNativeDesktopIcons, setDesktopSpacing, snapDesktopToGrid, snapSelectedDesktopIconsToEdge, toBackup } from './desktop-layout'
 import { captureDisplay, captureFullScreen, captureWindowList, copyImageDataUrl, inspectSearchBackend, openPath, refreshIconCache, revealPath, searchFiles, setWindowsDesktopIconsHidden, watchDirectory } from './system-services'
 import { assignOrganizationItem, desktopRoot, executeBatchRename, executeOrganization, previewBatchRename, previewOrganization, recentDesktopFiles, revertOperation, scanDesktop } from './organizer-services'
@@ -977,25 +977,26 @@ const publishWellness = (): void => {
 }
 const advanceWellness = (now: number): void => {
   if (wellnessPaused) { publishWellness(); return }
-  let settings: ReminderSettings = store.data.settings
+  let settings: ReminderSettings = { ...store.data.settings, hydrationReminderEnabled: hydrationDayAt(store.data.hydrationDay, now).consumedMl < store.data.settings.hydrationPlan.goalMl }
+  const previousHydration = wellnessReminderState.hydration
   const carriedHydration = overdueHydrationClock(store.data.settings.hydrationPlan, store.data.hydrationDay, wellnessReminderState.hydration, now)
   if (store.data.settings.hydrationPlan.enabled) {
     const clock = hydrationPlanClock(store.data.settings.hydrationPlan, store.data.hydrationDay, wellnessReminderState.hydration, now)
     wellnessReminderState = { ...wellnessReminderState, hydration: clock }
     settings = { ...settings, hydrationReminderEnabled: settings.hydrationReminderEnabled && Boolean(clock), hydrationIntervalMinutes: clock?.intervalMinutes ?? settings.hydrationIntervalMinutes }
   } else if (wellnessReminderState.hydration?.planKey) delete wellnessReminderState.hydration
-  const hydrationClock=store.data.settings.hydrationPlan.enabled?wellnessReminderState.hydration:undefined
   const result = tickReminders(settings, wellnessReminderState, now)
   wellnessReminderState = carriedHydration ? { ...result.state, hydration: carriedHydration } : result.state
-  // Daily progress continues even when notification delivery is switched off.
-  if(hydrationClock && !settings.hydrationReminderEnabled)wellnessReminderState.hydration=hydrationClock
-  if (!settings.hydrationReminderEnabled) { wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration') }
+  // Filling the cup is independent of notification delivery.
+  if (!store.data.settings.hydrationReminderEnabled && wellnessReminderState.hydration && result.due.includes('hydration')) wellnessReminderState.hydration.notified = previousHydration?.notified
+  if (!settings.hydrationReminderEnabled || !store.data.settings.hydrationReminderEnabled) { wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration') }
   for (const kind of result.due) {
+    if (kind === 'hydration' && !store.data.settings.hydrationReminderEnabled) continue
     if (!Notification.isSupported()) continue
     wellnessNotifications.get(kind)?.close()
     const notification = new Notification({
       title: kind === 'hydration' ? '水杯满了，喝几口水吧' : '起来活动，让脊柱舒展一下',
-      body: '点击通知打开健康图标，可确认完成或推迟 10 分钟。',
+      body: kind === 'hydration' ? '点击通知查看水杯，点击水杯即可记录当前水量。' : '点击通知确认已活动，或推迟 10 分钟。',
       silent: !store.data.settings.healthSoundEnabled
     })
     wellnessNotifications.set(kind, notification)
@@ -1003,8 +1004,8 @@ const advanceWellness = (now: number): void => {
       void showDesktopWidgets().then(async () => {
         await updateDesktopModule('todos', { visible: true, collapsed: false })
         await updateDesktopModule('health', { visible: true })
-        const window = desktopModuleWindows.get('todos')
-        window?.webContents.send('navigate', `wellness:${kind}`)
+        const window = desktopModuleWindows.get(kind === 'hydration' ? 'health' : 'todos')
+        window?.webContents.send('navigate', kind === 'hydration' ? 'wellness:recordHydration' : `wellness:${kind}`)
         window?.focus()
       })
     })
@@ -1038,7 +1039,6 @@ const startReminderWatcher = (): void => {
       wellnessReminderState = resumeReminderClocks(wellnessReminderState, wellnessPausedAt, now)
       if (wellnessUndo?.clock) wellnessUndo.clock = resumeReminderClocks({ [wellnessUndo.kind]: wellnessUndo.clock }, wellnessPausedAt, now)[wellnessUndo.kind]
     }
-    if (store.data.settings.hydrationPlan.enabled) delete wellnessReminderState.hydration
     wellnessPausedAt = null
     wellnessPaused = false
     advanceWellness(now)
@@ -1226,6 +1226,18 @@ const registerIpc = (): void => {
     return data
   })
   ipcMain.handle('wellness:get', () => wellnessSnapshot())
+  ipcMain.handle('wellness:setHydrationGoal', async (_event, goalMl: unknown) => {
+    if (typeof goalMl !== 'number') throw new Error('今日总喝水量须为 500–5000ml 的整数。')
+    if (goalMl === store.data.settings.hydrationPlan.goalMl) return store.data
+    const updated = await store.update(data => {
+      data.settings.hydrationPlan = validateHydrationPlan({ ...data.settings.hydrationPlan, goalMl })
+    })
+    if (wellnessUndo?.kind === 'hydration') wellnessUndo = null
+    wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration')
+    advanceWellness(Date.now())
+    broadcastData()
+    return updated
+  })
   ipcMain.handle('desktop:progress', () => collectionProgress)
   ipcMain.handle('wellness:resetHydration', async () => {
     await store.update(data => { data.hydrationDay = hydrationDayAt(undefined, Date.now()) })
@@ -1239,7 +1251,8 @@ const registerIpc = (): void => {
   ipcMain.handle('wellness:menu', (event, kind: unknown) => {
     if(kind!=='hydration' && kind!=='sedentary')throw new Error('健康提醒类型无效。')
     const enabled=kind==='hydration'?store.data.settings.hydrationReminderEnabled:store.data.settings.sedentaryReminderEnabled
-    const canSnooze=enabled && (kind!=='hydration' || hydrationPlanCanRecord(hydrationPlanSnapshot(store.data.settings.hydrationPlan,store.data.hydrationDay,Date.now())))
+    const plan=hydrationPlanSnapshot(store.data.settings.hydrationPlan,store.data.hydrationDay,Date.now())
+    const canSnooze=enabled && (kind!=='hydration' || (plan.status!=='complete' && (!plan.enabled || plan.status==='active')))
     const report=(message:string,failed=false):void=>{if(!event.sender.isDestroyed())event.sender.send('wellness:feedback',{message,failed})}
     const selectInterval=(minutes:number):void=>{void store.update(data=>{
       if(kind==='hydration'){data.settings.hydrationReminderEnabled=true;data.settings.hydrationIntervalMinutes=minutes;data.settings.hydrationPlan.enabled=false}
@@ -1255,28 +1268,28 @@ const registerIpc = (): void => {
     ]
     Menu.buildFromTemplate(template).popup({window:BrowserWindow.fromWebContents(event.sender) ?? undefined})
   })
-  ipcMain.handle('wellness:respond', async (_event, kind: unknown, action: unknown) => {
+  ipcMain.handle('wellness:respond', async (_event, kind: unknown, action: unknown, recording: unknown) => {
     if ((kind !== 'hydration' && kind !== 'sedentary') || (action !== 'done' && action !== 'snooze')) throw new Error('健康提醒操作无效。')
-    if (!(kind === 'hydration' ? store.data.settings.hydrationReminderEnabled || store.data.settings.hydrationPlan.enabled : store.data.settings.sedentaryReminderEnabled)) throw new Error('请先开启这项提醒。')
-    const now = kind === 'hydration' && store.data.settings.hydrationPlan.enabled ? Date.now() : wellnessPausedAt ?? Date.now()
-    if (kind === 'hydration') {
-      const plan = hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, now)
-      if (!hydrationPlanCanRecord(plan)) throw new Error(plan.status === 'before' ? '喝水计划尚未开始，不能记录或扣减水量。' : '今日喝水记录已结束，剩余水量保留为今日未达标记录。')
-    }
+    if ((kind === 'sedentary' && !store.data.settings.sedentaryReminderEnabled) || (kind === 'hydration' && action === 'snooze' && !store.data.settings.hydrationReminderEnabled)) throw new Error('请先开启这项提醒。')
+    const now = kind === 'hydration' && action === 'done' ? Date.now() : wellnessPausedAt ?? Date.now()
     const undo = action === 'done' ? captureWellnessUndo(createId(), kind, store.data.settings, wellnessReminderState[kind], store.data.hydrationDay, Date.now()) : null
-    if (kind === 'hydration' && action === 'done' && store.data.settings.hydrationPlan.enabled) {
+    if (kind === 'hydration' && action === 'done') {
+      if (!recording || typeof recording !== 'object' || typeof (recording as Record<string, unknown>).amountMl !== 'number' || typeof (recording as Record<string, unknown>).recordId !== 'string') throw new Error('喝水记录缺少当前杯量，请重试。')
+      const { amountMl, recordId } = recording as { amountMl: number; recordId: string }
+      let recorded = false
       await store.update(data => {
         const day = hydrationDayAt(data.hydrationDay, now)
+        const next = recordHydration(data.settings.hydrationPlan, day, amountMl, now, recordId)
+        if (day.recordIds?.includes(recordId)) return
         const clock = wellnessReminderState.hydration
-        if (clock?.planKey) {
-          const due = new Date(clock.dueAt)
-          const time = `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
-          day.completedTimes = [...new Set([...(day.completedTimes ?? []), time])]
-        }
-        day.consumedMl += Math.min(data.settings.hydrationPlan.cupMl, Math.max(0, data.settings.hydrationPlan.goalMl - day.consumedMl))
-        day.lastCupAt = now
-        data.hydrationDay = day
+        const currentClock = clock && day.lastCupAt !== undefined && clock.startedAt < day.lastCupAt ? undefined : clock
+        const visualNow = wellnessPausedAt ?? now
+        const water = hydrationReminderVisual({ state: { ...wellnessReminderState, hydration: currentClock }, paused: wellnessPaused, now: visualNow, hydrationPlan: hydrationPlanSnapshot(data.settings.hydrationPlan, day, now) }, visualNow)
+        if (amountMl > hydrationCupMl(data.settings.hydrationPlan.cupMl, water.progress)) throw new Error('当前杯量已变化，请按水杯显示的水量重试。')
+        data.hydrationDay = next
+        recorded = true
       })
+      if (!recorded) return wellnessSnapshot()
       delete wellnessReminderState.hydration
       advanceWellness(now)
       broadcastData()
@@ -1290,7 +1303,9 @@ const registerIpc = (): void => {
   ipcMain.handle('wellness:undo', async (_event, id: unknown) => {
     const record = wellnessUndo
     validateWellnessUndo(record, id, store.data.settings, store.data.hydrationDay, Date.now())
-    if (record.dayBefore) await store.update(data => { data.hydrationDay = structuredClone(record.dayBefore!) })
+    if (record.dayBefore) await store.update(data => {
+      data.hydrationDay = { ...structuredClone(record.dayBefore!), recordIds: [...new Set([...(record.dayBefore!.recordIds ?? []), ...(data.hydrationDay.recordIds ?? [])])] }
+    })
     wellnessReminderState = { ...wellnessReminderState, [record.kind]: record.clock ? { ...record.clock } : undefined }
     wellnessUndo = null
     wellnessNotifications.get(record.kind)?.close(); wellnessNotifications.delete(record.kind)

@@ -13,6 +13,7 @@ export interface ReminderClock {
   notified?: boolean
   snoozedUntil?: number
   planKey?: string
+  planTime?: string
 }
 export type ReminderKind = keyof ReminderState
 export interface WellnessSnapshot { state: ReminderState; paused: boolean; now: number; hydrationPlan?: HydrationPlanSnapshot; undo?: { id: string; kind: ReminderKind; expiresAt: number } }
@@ -74,6 +75,11 @@ export function reminderPercent(progress: number): number {
   return Math.max(1, Math.floor(progress * 100))
 }
 
+export function hydrationCupMl(cupMl: number, progress: number): number {
+  if (!Number.isFinite(cupMl) || cupMl <= 0 || !Number.isFinite(progress)) return 0
+  return Math.floor(Math.floor(cupMl) * Math.max(0, Math.min(1, progress)))
+}
+
 export function reminderVisual(clock: ReminderClock | undefined, now: number): { progress: number; percent: number; overdue: boolean; snoozed: boolean; minutes: number } {
   if (!clock) return { progress: 0, percent: 1, overdue: false, snoozed: false, minutes: 0 }
   const snoozed = Boolean(clock.snoozedUntil && clock.snoozedUntil > now)
@@ -88,10 +94,11 @@ export function reminderVisual(clock: ReminderClock | undefined, now: number): {
 
 export function hydrationReminderVisual(snapshot: WellnessSnapshot, now: number): ReturnType<typeof reminderVisual> {
   const plan = snapshot.hydrationPlan
+  if (plan?.status === 'complete') return { progress: 0, percent: 0, overdue: false, snoozed: false, minutes: 0 }
   if (plan?.enabled && (plan.status !== 'active' || !snapshot.state.hydration)) {
     if (plan.status === 'ended' && snapshot.state.hydration) return reminderVisual(snapshot.state.hydration, now)
-    if (plan.status !== 'complete' && plan.restingClock) return reminderVisual(plan.restingClock, now)
-    const progress = plan.status === 'complete' ? 1 : plan.restingProgress
+    if (plan.restingClock) return reminderVisual(plan.restingClock, now)
+    const progress = plan.restingProgress
     return { progress, percent: reminderPercent(progress), overdue: false, snoozed: false, minutes: 0 }
   }
   return reminderVisual(snapshot.state.hydration, now)

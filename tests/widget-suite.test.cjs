@@ -153,7 +153,7 @@ test('all enabled legacy modules project to exactly two panels without changing 
   const panels=desktopPanels(data.desktopModules)
   assert.deepEqual(panels.map(panel=>panel.kind),['quick','todos'])
   assert.equal(panels[1].visible,true)
-  assert.equal(panels[1].title,'综合助手')
+  assert.equal(panels[1].title,'桌面搭子')
   assert.deepEqual(data,before)
   assert.equal(assistantTools.length,5)
   assert.equal(new Set(assistantTools.map(tool=>tool.id)).size,5)

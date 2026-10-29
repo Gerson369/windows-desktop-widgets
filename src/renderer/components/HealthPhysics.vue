@@ -55,6 +55,15 @@ function spawnDrop() {
   drops.push({ x: point.x, y: point.y, vx: right ? 16 : -16, vy: 0, width: 2.5, height: 5, angle: 0, spin: 0,
     floor: point.y < surface ? Math.min(surface, height - 3) : height - 3 })
 }
+function clipToIcon(svg: SVGSVGElement | null) {
+  context!.save()
+  if (!svg) return
+  const bounds = svg.getBoundingClientRect()
+  const left = Math.max(0, bounds.left - 3)
+  context!.beginPath()
+  context!.rect(left, 0, Math.min(width, bounds.right + 3) - left, height)
+  context!.clip()
+}
 function draw(now: number) {
   frame = 0
   if (!allowed() || props.paused) { last = 0; return }
@@ -71,6 +80,7 @@ function draw(now: number) {
     debt += dt * (3 + props.spill * 12)
     while (debt >= 1 && drops.length < 64) { spawnDrop(); debt-- }
   }
+  clipToIcon(props.cup)
   const nextDrops: Droplet[] = []
   for (const drop of drops) {
     const next = { ...stepBody(drop, dt, drop.floor, width, 0), floor: drop.floor, splash: drop.splash }
@@ -91,11 +101,14 @@ function draw(now: number) {
     context!.strokeStyle = `rgba(120,203,220,${(1 - ripple.age / .65) * .65})`
     context!.beginPath(); context!.ellipse(ripple.x, ripple.y, 2 + ripple.age * 22, 1 + ripple.age * 3, 0, Math.PI, Math.PI * 2); context!.stroke()
   }
+  context!.restore()
+  clipToIcon(props.spine)
   for (const [id, body] of bones) {
     const next = stepBody(body, dt, height - 3, width, .27); bones.set(id, next)
     context!.save(); context!.translate(next.x, next.y); context!.rotate(next.angle); context!.fillStyle = props.boneColor
     context!.beginPath(); context!.roundRect(-next.width / 2, -next.height / 2, next.width, next.height, 1); context!.fill(); context!.restore()
   }
+  context!.restore()
   if (now - metricsAt > 100) { counts.value = { water: drops.length, bones: bones.size, active: true }; metricsAt = now }
   if (props.wet || drops.length || ripples.length || waitingBones.length || [...bones.values()].some(body => !body.settled)) frame = requestAnimationFrame(draw)
   else { last = 0; counts.value = { water: drops.length, bones: bones.size, active: false } }

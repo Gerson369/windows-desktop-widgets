@@ -145,7 +145,7 @@ export function migrateDesktopCollection(data: AppData, area: { x: number; y: nu
       assistant.width = Math.min(Math.max(360, assistant.width), area.width - 32)
       assistant.height = Math.min(Math.max(480, assistant.height), area.height - 48)
       if (besideCollection) assistant.x = Math.max(area.x + 16, quick.x - assistant.width)
-      assistant.title = '综合助手'
+      assistant.title = '桌面搭子'
       assistant.preferredBounds = { x: assistant.x, y: assistant.y, width: assistant.width, height: assistant.height }
     }
     data.settings.desktopWidgetVersion = 5

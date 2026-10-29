@@ -32,10 +32,11 @@ const toolbox = {
       return () => ipcRenderer.removeListener('wellness:feedback', listener)
     },
     resetHydration: () => invoke<AppData>('wellness:resetHydration'),
+    setHydrationGoal: (goalMl: number) => invoke<AppData>('wellness:setHydrationGoal', goalMl),
     menu: (kind: import('../main/wellness-reminders').ReminderKind) => invoke<void>('wellness:menu', kind),
     get: () => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:get'),
     undo: (id: string) => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:undo', id),
-    respond: (kind: import('../main/wellness-reminders').ReminderKind, action: 'done' | 'snooze') => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:respond', kind, action),
+    respond: (kind: import('../main/wellness-reminders').ReminderKind, action: 'done' | 'snooze', recording?: import('../main/hydration-plan').HydrationRecording) => invoke<import('../main/wellness-reminders').WellnessSnapshot>('wellness:respond', kind, action, recording),
     onChanged: (callback: (snapshot: import('../main/wellness-reminders').WellnessSnapshot) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, snapshot: import('../main/wellness-reminders').WellnessSnapshot) => callback(snapshot)
       ipcRenderer.on('wellness:changed', listener)

@@ -5,13 +5,14 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileScript } = require('@vue/compiler-sfc')
+const { renderToString } = require('vue/server-renderer')
 const { loadTypeScript } = require('./load-typescript.cjs')
 
-function healthSettings({ failSave = false, confirmReset = true } = {}) {
-  const plan = { enabled: true, goalMl: 2000, cupMl: 250, start: '09:00', end: '20:00' }
+function healthSettings({ failSave = false, confirmReset = true, enabled = true, failReset = false, render = false } = {}) {
+  const plan = { enabled, goalMl: 2000, cupMl: 250, start: '09:00', end: '20:00' }
   const props = vue.reactive({ data: { settings: { hydrationPlan: plan, hydrationReminderEnabled: true, hydrationIntervalMinutes: 30, sedentaryReminderEnabled: true, sedentaryIntervalMinutes: 60, healthSoundEnabled: true } } })
-  const calls = [], statuses = []
-  let resets = 0, confirmations = 0, rejectNextSave = failSave
+  const calls = [], statuses = [], confirmationMessages = []
+  let resets = 0, confirmations = 0, rejectNextSave = failSave, rejectNextReset = failReset
   const toolbox = {
     settings: { update: async patch => {
       calls.push(JSON.parse(JSON.stringify(patch)))
@@ -19,21 +20,26 @@ function healthSettings({ failSave = false, confirmReset = true } = {}) {
       Object.assign(props.data.settings, patch)
       return props.data
     } },
-    wellness: { resetHydration: async () => { resets++; return props.data } }
+    wellness: { resetHydration: async () => {
+      resets++
+      if (rejectNextReset) { rejectNextReset = false; throw Error('reset failed') }
+      return props.data
+    } }
   }
   const source = fs.readFileSync('src/renderer/components/HydrationPlanSettings.vue', 'utf8')
   const { descriptor } = parse(source)
-  const script = compileScript(descriptor, { id: 'health-settings-test' })
+  const script = compileScript(descriptor, { id: 'health-settings-test', inlineTemplate: render })
   const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
   const context = {
     exports: {}, Error,
     require: id => id === 'vue' ? vue : id === '../toolbox' ? { toolbox } : id === '../save-queue' ? loadTypeScript('src/renderer/save-queue.ts') : loadTypeScript('src/main/hydration-plan.ts'),
-    confirm: () => { confirmations++; return confirmReset }
+    confirm: message => { confirmations++; confirmationMessages.push(message); return confirmReset }
   }
   vm.runInNewContext(compiled, context)
+  if (render) return renderToString(vue.createSSRApp(context.exports.default, props))
   const scope = vue.effectScope()
   const state = scope.run(() => context.exports.default.setup(props, { expose() {}, emit: (name, message) => statuses.push([name, message]) }))
-  return { state, calls, statuses, props, counts: () => ({ resets, confirmations }), stop: () => scope.stop() }
+  return { state, calls, statuses, props, confirmationMessages, counts: () => ({ resets, confirmations }), stop: () => scope.stop() }
 }
 
 async function flushSaves() {
@@ -41,38 +47,77 @@ async function flushSaves() {
   await vue.nextTick()
 }
 
-test('health plan saves keep failed custom times for retry and redistribute after goal changes', async () => {
+test('failed water goal saves preserve the draft across updates and retry without an obsolete schedule', async () => {
   const health = healthSettings({ failSave: true })
   try {
-    const original = [...health.state.times.value]
-    health.state.setTime(0, { target: { value: '10:10' } })
+    health.props.data.settings.hydrationPlan.times = ['10:10']
+    await vue.nextTick()
+    health.state.setPlan({ goalMl: 3000 })
     await flushSaves()
     assert.equal(health.state.planFailed.value, true)
-    assert.equal(health.state.draft.times[0], '10:10')
+    assert.equal(health.state.draft.goalMl, 3000)
     assert.equal(health.state.dirty.value, true)
+    health.props.data.settings.hydrationPlan = { ...health.props.data.settings.hydrationPlan, goalMl: 2500 }
+    await vue.nextTick()
+    assert.equal(health.state.draft.goalMl, 3000)
     await health.state.savePlan()
     assert.equal(health.state.planFailed.value, false)
     assert.equal(health.state.dirty.value, false)
-    assert.equal(health.calls.at(-1).hydrationPlan.times[0], '10:10')
-    health.state.setPlan({ goalMl: 3000 })
-    await flushSaves()
-    assert.equal(health.state.times.value.length, 12)
-    assert.equal(health.state.customSchedule.value, false)
-    assert.notEqual(health.calls.at(-1).hydrationPlan.times[0], '10:10')
-    assert.equal(original.length, 8)
+    assert.equal(health.calls.at(-1).hydrationPlan.goalMl, 3000)
+    assert.equal(health.calls.at(-1).hydrationPlan.times, undefined)
   } finally { health.stop() }
 })
 
-test('invalid custom schedule is retained without calling the save API', async () => {
+test('invalid default record amounts stay in the draft without calling the save API', async () => {
   const health = healthSettings()
   try {
-    health.state.setTime(1, { target: { value: health.state.times.value[0] } })
+    health.state.setNumber('cupMl', { target: { value: '0' } })
     await flushSaves()
     assert.equal(health.calls.length, 0)
     assert.equal(health.state.planFailed.value, true)
-    assert.match(health.state.planMessage.value, /至少相隔 5 分钟/)
-    assert.equal(health.state.draft.times[1], health.state.draft.times[0])
+    assert.match(health.state.planMessage.value, /50.*1000/)
+    assert.equal(health.state.draft.cupMl, 0)
+    health.state.setNumber('cupMl', { target: { value: '300' } })
+    await flushSaves()
+    assert.equal(health.state.planFailed.value, false)
+    assert.equal(health.props.data.settings.hydrationPlan.cupMl, 300)
   } finally { health.stop() }
+})
+
+test('both reminder modes save a daily goal and default amount without turning notifications on', async () => {
+  for (const enabled of [false, true]) {
+    const health = healthSettings({ enabled })
+    try {
+      await health.state.saveSettings({ hydrationReminderEnabled: false, sedentaryReminderEnabled: false })
+      health.state.setNumber('goalMl', { target: { value: '2500' } })
+      health.state.setNumber('cupMl', { target: { value: '300' } })
+      await flushSaves()
+      assert.equal(health.props.data.settings.hydrationPlan.goalMl, 2500)
+      assert.equal(health.props.data.settings.hydrationPlan.cupMl, 300)
+      assert.equal(health.props.data.settings.hydrationPlan.enabled, enabled)
+      health.state.setPlan({ enabled: !enabled })
+      await flushSaves()
+      assert.equal(health.props.data.settings.hydrationReminderEnabled, false)
+      health.state.selectSedentaryInterval(45)
+      await flushSaves()
+      assert.equal(health.props.data.settings.sedentaryReminderEnabled, false)
+    } finally { health.stop() }
+  }
+})
+
+test('both modes render common water amounts and only daily mode offers a reminder time range', async () => {
+  for (const enabled of [false, true]) {
+    const html = await healthSettings({ enabled, render: true })
+    assert.match(html, /id="hydration-goal"/)
+    assert.match(html, /id="hydration-cup"/)
+    assert.match(html, /水杯容量/)
+    assert.match(html, /点击按杯中当前毫升数记录/)
+    assert.doesNotMatch(html, /编辑时间|每杯喝水时间|第 1 杯|结束后.*不能记录/)
+    assert.equal(html.includes('id="hydration-start"'), enabled)
+    assert.equal(html.includes('id="hydration-end"'), enabled)
+    assert.equal(html.includes('aria-label="喝水间隔快捷选择"'), !enabled)
+    if (enabled) assert.match(html, /按剩余水量与剩余时段自动均分提醒/)
+  }
 })
 
 test('health reminder saves validate the interval and retry a failed patch', async () => {
@@ -98,10 +143,27 @@ test('today reset requires confirmation and does not alter the daily time range'
       assert.deepEqual(health.counts(), { resets: Number(confirmReset), confirmations: 1 })
       assert.equal(health.props.data.settings.hydrationPlan.start, '09:00')
       assert.equal(health.props.data.settings.hydrationPlan.end, '20:00')
+      assert.match(health.confirmationMessages[0], /水杯容量和提醒时段保持不变/)
+      assert.doesNotMatch(health.confirmationMessages[0], /不能记录/)
     } finally { health.stop() }
   }
 })
 
+
+test('failed daily resets expose retry without changing the saved plan', async () => {
+  const health = healthSettings({ failReset: true })
+  try {
+    const planBeforeReset = JSON.stringify(health.props.data.settings.hydrationPlan)
+    await health.state.resetToday()
+    assert.equal(health.state.resetFailed.value, true)
+    assert.equal(health.state.resetting.value, false)
+    assert.equal(health.statuses.at(-1)[1], '保存失败：reset failed')
+    await health.state.resetToday()
+    assert.equal(health.state.resetFailed.value, false)
+    assert.equal(health.counts().resets, 2)
+    assert.equal(JSON.stringify(health.props.data.settings.hydrationPlan), planBeforeReset)
+  } finally { health.stop() }
+})
 
 test('custom sedentary interval stays collapsed for presets and opens for custom values', async () => {
   const health = healthSettings()

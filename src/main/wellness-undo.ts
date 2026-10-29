@@ -20,7 +20,7 @@ function settingsKey(settings: AppSettings, kind: ReminderKind): string {
 export function captureWellnessUndo(id: string, kind: ReminderKind, settings: AppSettings, clock: ReminderClock | undefined, day: HydrationDay, now: number): WellnessUndo {
   return { id, kind, expiresAt: now + 15000, date: hydrationDayAt(day, now).date, signature: settingsKey(settings, kind),
     clock: clock ? { ...clock } : undefined,
-    dayBefore: kind === 'hydration' && settings.hydrationPlan.enabled ? structuredClone(hydrationDayAt(day, now)) : undefined }
+    dayBefore: kind === 'hydration' ? structuredClone(hydrationDayAt(day, now)) : undefined }
 }
 export function validateWellnessUndo(record: WellnessUndo | null, id: unknown, settings: AppSettings, day: HydrationDay, now: number): asserts record is WellnessUndo {
   if (!record || typeof id !== 'string' || record.id !== id || now >= record.expiresAt) throw new Error('这次操作已无法撤销，请在完成后 15 秒内撤销最近一次操作。')

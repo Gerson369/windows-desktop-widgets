@@ -15,7 +15,7 @@ test('health dock follows any supported edge and detaches once it is dragged awa
  const attached=dockedWidgetBounds(child,dock,{...parent,height:42})
  assert.equal(attached.y,142)
  const {desktopPanels,setPanelVisibility}=loadTypeScript('src/main/desktop-panels.ts')
- const modules=[{id:'quick',kind:'quick',title:'桌面收纳',visible:true},{id:'todos',kind:'todos',title:'综合助手',visible:false},{id:'health',kind:'health',title:'喝水与活动',visible:true}]
+ const modules=[{id:'quick',kind:'quick',title:'桌面收纳',visible:true},{id:'todos',kind:'todos',title:'桌面搭子',visible:false},{id:'health',kind:'health',title:'喝水与活动',visible:true}]
  assert.equal(desktopPanels(modules).length,3)
  assert.equal(desktopPanels(modules).find(m=>m.id==='todos').visible,false)
  setPanelVisibility(modules,'todos',false)
@@ -170,9 +170,12 @@ test('todo creation date never acts as a schedule date and the four counts follo
  assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([key,items])=>[key,items.length])),{pending:4,today:1,planned:1,completed:1})
  assert.equal(groups.today[0].id,'today');assert.equal(groups.planned[0].id,'future');assert.equal(todos[0].dueAt,undefined)
 })
-test('daily hydration rejects recording once the time range ends or the goal is complete',()=>{
+test('actual hydration recording depends on the daily storage limit rather than mode, time or reminder progress',()=>{
  const {hydrationPlanCanRecord}=loadTypeScript('src/main/hydration-plan.ts')
- for(const status of ['active'])assert.equal(hydrationPlanCanRecord({enabled:true,status}),true)
- for(const status of ['before','ended','complete'])assert.equal(hydrationPlanCanRecord({enabled:true,status}),false)
- assert.equal(hydrationPlanCanRecord({enabled:false,status:'ended'}),true)
+ const clock={intervalMinutes:30,startedAt:0,dueAt:30*60_000}
+ for(const enabled of [false,true])for(const status of ['before','active','ended','complete']){
+  for(const now of [clock.dueAt*.01,clock.dueAt*.5,clock.dueAt,clock.dueAt+60_000])assert.equal(hydrationPlanCanRecord({enabled,status,consumedMl:2500},clock,now),true)
+  assert.equal(hydrationPlanCanRecord({enabled,status,consumedMl:99999},undefined,0),true)
+ }
+ for(const consumedMl of [100000,100001,-1,NaN,1.5])assert.equal(hydrationPlanCanRecord({consumedMl},undefined,0),false)
 })

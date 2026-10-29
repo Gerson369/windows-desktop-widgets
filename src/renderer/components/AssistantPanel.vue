@@ -71,9 +71,9 @@ onBeforeUnmount(() => { dispose?.(); disposeNavigation?.(); document.removeEvent
 <template>
   <main class="assistant-panel" :class="{ 'is-settings': settingsOpen }" :style="{ '--panel-alpha': (data?.settings.desktopModuleOpacity ?? 70) / 100 }" @mouseenter="hover.enter" @mouseleave="hover.leave">
     <header class="module-header assistant-header" @pointerdown="drag.start" @pointermove="drag.move" @pointerup="drag.finish" @pointercancel="drag.finish" @lostpointercapture="drag.finish">
-      <button v-if="settingsOpen" title="返回助手" aria-label="返回助手" @click="settingsOpen=false"><AssistantIcon name="back"/></button><AssistantIcon v-else name="layout"/><b>{{settingsOpen ? '助手设置' : '综合助手'}}</b>
-      <button :title="collapsed ? '展开' : '收起'" :aria-label="collapsed ? '展开综合助手' : '收起综合助手'" @click="toggleCollapsed"><AssistantIcon :name="collapsed ? 'expand' : 'collapse'"/></button>
-      <button title="设置" aria-label="设置" @click="openSettings()"><AssistantIcon name="menu"/></button>
+      <AssistantIcon name="layout"/><b>{{settingsOpen ? '助手设置' : '桌面搭子'}}</b>
+      <button :title="collapsed ? '展开' : '收起'" :aria-label="collapsed ? '展开桌面搭子' : '收起桌面搭子'" @click="toggleCollapsed"><AssistantIcon :name="collapsed ? 'expand' : 'collapse'"/></button>
+      <button :title="settingsOpen ? '返回助手' : '设置'" :aria-label="settingsOpen ? '返回助手' : '设置'" @click="settingsOpen ? settingsOpen=false : openSettings()"><AssistantIcon :name="settingsOpen ? 'back' : 'menu'"/></button>
     </header>
     <SettingsPanel v-if="settingsVisited" v-show="settingsOpen && !collapsed" :section="settingsSection" @section="settingsSection=$event" @return="settingsOpen=false"/>
       <AssistantOverview v-if="data" v-show="!settingsOpen && !collapsed" :data="data" :active="active" @select="selectTool($event)"/>

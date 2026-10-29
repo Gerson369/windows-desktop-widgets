@@ -63,12 +63,44 @@
 @media(max-width:360px){.settings-body{padding:16px 12px 12px}.settings-panel .settings-card{padding:12px}.settings-panel .settings-save-status{padding:8px 12px}.settings-save-status small{display:none}.settings-panel h2{font-size:19px}.desktop-settings-tabs{gap:6px}}
 @media(prefers-reduced-motion:reduce){.settings-panel *::after{transition:none}}
 
-.settings-panel .health-settings > .settings-card{margin-bottom:0}
 .settings-panel .suite-settings > .settings-card,.settings-panel .organizer-compact > .settings-card{margin-bottom:0}
 .settings-panel .component-row{display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:12px}
-.settings-panel .hydration-summary{padding:12px}
-.settings-panel .summary-label{font-size:12px;line-height:1.25}
-.settings-panel .summary-values{margin:3px 0 5px}
-.settings-panel .summary-values strong{font-size:28px;line-height:1.1}
-.settings-panel .summary-progress{font-size:11px;line-height:1.3}
-.settings-panel .summary-progress progress{height:7px}
+/* Health settings use compact rows; water goals apply to either reminder mode. */
+.settings-body[data-section=health]{padding:12px 14px}
+.settings-body[data-section=health] .settings-heading{margin-bottom:12px}
+.settings-body[data-section=health] .settings-heading h2{font-size:18px}
+.health-settings{display:grid;gap:12px;min-width:0}
+.settings-panel .health-settings h3{font-size:14px;line-height:1.4}
+.health-settings-section{display:grid;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--settings-border)}
+.health-setting-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.health-setting-heading>div:first-child{min-width:0}
+.health-switch{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.health-switch>span{font-size:12px;white-space:nowrap;color:var(--settings-muted)}
+.hydration-summary{display:grid;gap:6px}
+.summary-values{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--settings-muted);font-variant-numeric:tabular-nums}
+.summary-values strong{margin-left:auto;color:#f0f3f2;font-size:14px;font-weight:600;white-space:nowrap}
+.summary-values strong span{font-size:12px;font-weight:400;color:var(--settings-muted)}
+.hydration-summary progress{appearance:none;width:100%;height:4px;border:0;border-radius:4px;overflow:hidden;background:var(--settings-border)}
+.hydration-summary progress::-webkit-progress-bar{background:var(--settings-border)}
+.hydration-summary progress::-webkit-progress-value{background:var(--settings-accent)}
+.health-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.settings-panel .health-field-grid .settings-field{gap:4px}
+.health-field-grid label{display:flex;justify-content:space-between;gap:8px}
+.health-field-grid label span{color:var(--settings-muted)}
+.settings-panel .health-field-grid input{padding:5px 8px;min-height:30px;font-variant-numeric:tabular-nums}
+.settings-panel .health-settings .settings-hint{margin:0;font-size:12px;line-height:1.5}
+.settings-panel .health-settings .drinking-modes{margin:0}
+.settings-panel .health-settings .drinking-modes button{min-height:30px;padding:4px 8px}
+.health-presets{display:flex;gap:4px;min-width:0}
+.settings-panel .health-presets button{flex:1;min-width:0;min-height:30px;padding:4px 2px;font-size:12px;white-space:nowrap}
+.settings-panel .health-presets button[aria-pressed=true]{background:var(--settings-accent);border-color:var(--settings-accent);color:#14291e}
+.settings-panel .health-settings .interval-field{margin:0;padding:0;border:0;font-size:12px;min-height:30px}
+.interval-field>span{display:flex;align-items:center;gap:6px;color:var(--settings-muted)}
+.settings-panel .interval-field input{width:70px;min-height:30px;padding:4px 6px}
+.health-secondary-actions{display:grid;justify-items:start;gap:4px}
+.settings-panel .health-secondary-actions>.settings-link{font-size:12px;text-decoration:underline}
+.settings-panel .health-save-error{margin:0;padding:8px 10px;border:1px solid #e8a99f60;border-radius:6px;background:#e8a99f0a;color:#ffd0c6;font-size:12px;line-height:1.5}
+.health-save-error .settings-link{display:inline;font-size:12px}
+.settings-panel .health-reset-message{margin:0;font-size:12px;line-height:1.5;color:var(--settings-accent)}
+.settings-panel .health-reset-message[role=alert]{color:#ffd0c6}
+@media(max-width:320px){.settings-body[data-section=health]{padding:12px}.health-field-grid{column-gap:8px}.health-switch{gap:6px}}
