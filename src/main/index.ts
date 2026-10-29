@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs'
 import { createId, defaultData, type AppData, type AppSettings, type DesktopIconArrangePlan, type DesktopModule, type DesktopZone, type InboxItem, type MappingItem, type OrganizerRule, type StickyNote, type StorageItem, type TodoItem } from './types'
 import { store } from './store'
 import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInventory, desktopCoverageProblems, migrateDesktopCollection, placeStartupWidgets } from './desktop-widgets'
-import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea } from './widget-snap'
+import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea, type WidgetResizeEdge } from './widget-snap'
 import { dockedWidgetBounds, findWidgetDock, fitDockedParent } from './widget-docking'
 import { normalizeCollectionSorts, normalizeCollectionRules, type CollectionProgress } from './desktop-collection'
 import { dueTodoReminders, validateTodoReminder } from './todo-reminders'
@@ -281,13 +281,14 @@ const followDockedHealth = (parentId: string, bounds: Electron.Rectangle): void 
   try{window.setBounds(dockedWidgetBounds({...window.getBounds(),...healthWidgetSize},health.dock,bounds))}finally{applyingDesktopModuleBounds.delete(health.id)}
 }
 
-const snapDesktopModuleBounds = (movingId: string, raw: Electron.Rectangle, resizing = false): Electron.Rectangle => {
+const snapDesktopModuleBounds = (movingId: string, raw: Electron.Rectangle, resizeEdge?: WidgetResizeEdge): Electron.Rectangle => {
   const display = screen.getDisplayNearestPoint({ x: raw.x + Math.round(raw.width / 2), y: raw.y + Math.round(raw.height / 2) }).workArea
   const neighbors = [...desktopModuleWindows, ...desktopZoneWindows]
     .filter(([id, window]) => id !== movingId && !window.isDestroyed() && window.isVisible())
     .filter(([id])=> !(id==='health' && store.data.desktopModules.find(item=>item.id==='health')?.dock?.parentId===movingId))
     .map(([, window]) => window.getBounds())
-  const snapped=store.data.settings.snapMode === 'none' ? raw : (resizing ? snapResizedWidgetBounds : snapWidgetBounds)(raw, display, neighbors, store.data.settings.desktopSnapDistance)
+  const distance = store.data.settings.desktopSnapDistance
+  const snapped = store.data.settings.snapMode === 'none' ? raw : resizeEdge ? snapResizedWidgetBounds(raw, display, neighbors, distance, resizeEdge) : snapWidgetBounds(raw, display, neighbors, distance)
   const health=store.data.desktopModules.find(item=>item.kind==='health' && item.visible && item.dock?.parentId===movingId)
   return health?.dock ? fitDockedParent(snapped,{...health,...healthWidgetSize},health.dock,display) : snapped
 }
@@ -306,9 +307,7 @@ const bindDesktopWidgetMovement = (id: string, window: BrowserWindow, applying: 
   window.on('will-resize', (event, raw, details) => {
     if (applying.has(id)) return
     resizingDesktopWidgets.add(id)
-    const dockedHealth=store.data.desktopModules.some(module=>module.kind==='health' && module.visible && module.dock?.parentId===id)
-    if (!details.edge.startsWith('bottom') && !dockedHealth) return
-    const snapped = snapDesktopModuleBounds(id, raw, true)
+    const snapped = snapDesktopModuleBounds(id, raw, details.edge)
     const [minimumWidth, minimumHeight] = window.getMinimumSize()
     if ((snapped.x === raw.x && snapped.y === raw.y && snapped.width === raw.width && snapped.height === raw.height) || snapped.width < minimumWidth || snapped.height < minimumHeight) return
     event.preventDefault()
@@ -971,9 +970,20 @@ const currentWellnessUndo = (): WellnessSnapshot['undo'] => {
     return { id: wellnessUndo.id, kind: wellnessUndo.kind, expiresAt: wellnessUndo.expiresAt }
   } catch { return undefined }
 }
-const wellnessSnapshot = (): WellnessSnapshot => ({ undo: currentWellnessUndo(), state: wellnessReminderState, paused: wellnessPaused, now: wellnessPausedAt ?? Date.now(), hydrationPlan: hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, Date.now()) })
+const wellnessFloodOrder = (): string[] => {
+  const panels = new Map<string, BrowserWindow | null | undefined>([
+    ...['health', 'quick', 'todos'].map(id => [id, desktopModuleWindows.get(id)] as const),
+    ...desktopModuleWindows,
+    ...Array.from(desktopZoneWindows, ([id, window]) => [`zone:${id}`, window] as const),
+    ...Array.from(noteWindows, ([id, window]) => [`note:${id}`, window] as const),
+    ['main', mainWindow]
+  ])
+  return [...panels].filter(([, window]) => window && !window.isDestroyed() && window.isVisible()).map(([id]) => id)
+}
+const wellnessSnapshot = (): WellnessSnapshot => ({ undo: currentWellnessUndo(), state: wellnessReminderState, paused: wellnessPaused, now: wellnessPausedAt ?? Date.now(), hydrationPlan: hydrationPlanSnapshot(store.data.settings.hydrationPlan, store.data.hydrationDay, Date.now()), floodOrder: wellnessFloodOrder() })
 const publishWellness = (): void => {
-  for (const window of [mainWindow, ...desktopModuleWindows.values()]) if (window && !window.isDestroyed()) window.webContents.send('wellness:changed', wellnessSnapshot())
+  const snapshot = wellnessSnapshot()
+  for (const window of [mainWindow, ...desktopModuleWindows.values(), ...desktopZoneWindows.values(), ...noteWindows.values()]) if (window && !window.isDestroyed()) window.webContents.send('wellness:changed', snapshot)
 }
 const advanceWellness = (now: number): void => {
   if (wellnessPaused) { publishWellness(); return }

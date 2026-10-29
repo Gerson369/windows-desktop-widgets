@@ -1,6 +1,6 @@
 {
   "name": "gerson-desktop-toolbox",
-  "version": "2.6.12",
+  "version": "2.6.13",
   "description": "桌面搭子：整理桌面、记下待办，到点提醒喝水和活动",
   "main": "out/main/index.js",
   "author": "Gerson",
@@ -10,7 +10,7 @@
     "start": "electron-vite preview",
     "build": "electron-vite build",
     "typecheck": "vue-tsc --noEmit",
-    "test": "node --test tests/q01-contract.test.cjs tests/focused-assistant.test.cjs tests/widget-suite.test.cjs tests/desktop-recovery.test.cjs tests/settings.test.cjs tests/health-settings.test.cjs",
+    "test": "node --test tests/q01-contract.test.cjs tests/focused-assistant.test.cjs tests/widget-suite.test.cjs tests/desktop-recovery.test.cjs tests/settings.test.cjs tests/health-settings.test.cjs tests/health-goal.test.cjs tests/health-flood.test.cjs",
     "pack": "npm run dist:windows",
     "dist": "npm run dist:windows",
     "dist:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File package-prepackaged-release.ps1",

@@ -1,4 +1,5 @@
 export interface WidgetBounds { x: number; y: number; width: number; height: number }
+export type WidgetResizeEdge = 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
 const nearby = (start: number, size: number, otherStart: number, otherSize: number, threshold: number): boolean => Math.max(otherStart - start - size, start - otherStart - otherSize, 0) <= threshold
 const closest = (value: number, targets: number[], threshold: number): number => {
@@ -11,14 +12,20 @@ const closest = (value: number, targets: number[], threshold: number): number =>
   return result
 }
 
-export function snapResizedWidgetBounds(raw: WidgetBounds, workArea: WidgetBounds, neighbors: WidgetBounds[], distance: number): WidgetBounds {
+export function snapResizedWidgetBounds(raw: WidgetBounds, workArea: WidgetBounds, neighbors: WidgetBounds[], distance: number, edge: WidgetResizeEdge = 'bottom'): WidgetBounds {
   const threshold = Math.max(6, Math.min(16, distance))
-  const bottoms = [workArea.y + workArea.height]
+  const xTargets = [workArea.x, workArea.x + workArea.width]
+  const yTargets = [workArea.y, workArea.y + workArea.height]
   for (const other of neighbors) {
-    if (nearby(raw.x, raw.width, other.x, other.width, threshold)) bottoms.push(other.y + other.height)
+    if (nearby(raw.y, raw.height, other.y, other.height, threshold)) xTargets.push(other.x, other.x + other.width)
+    if (nearby(raw.x, raw.width, other.x, other.width, threshold)) yTargets.push(other.y, other.y + other.height)
   }
-  const bottom = closest(raw.y + raw.height, bottoms, threshold)
-  return bottom > raw.y ? { ...raw, height: bottom - raw.y } : raw
+  const right = raw.x + raw.width, bottom = raw.y + raw.height
+  const x = edge.includes('left') ? closest(raw.x, xTargets.filter(target => target < right), threshold) : raw.x
+  const y = edge.includes('top') ? closest(raw.y, yTargets.filter(target => target < bottom), threshold) : raw.y
+  const snappedRight = edge.includes('right') ? closest(right, xTargets.filter(target => target > x), threshold) : right
+  const snappedBottom = edge.includes('bottom') ? closest(bottom, yTargets.filter(target => target > y), threshold) : bottom
+  return { x, y, width: snappedRight - x, height: snappedBottom - y }
 }
 
 export function fitWidgetToWorkArea(bounds: WidgetBounds, area: WidgetBounds): WidgetBounds {

@@ -1,5 +1,33 @@
 const test=require('node:test'),assert=require('node:assert/strict')
 const {loadTypeScript}=require('./load-typescript.cjs')
+test('health changes reach every panel and keep a stable visible flood sequence',()=>{
+ const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm')
+ const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
+ const declaration=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(item=>ts.isIdentifier(item.name) && item.name.text==='publishWellness'))
+ const order=ast.statements.find(node=>ts.isVariableStatement(node) && node.declarationList.declarations.some(item=>ts.isIdentifier(item.name) && item.name.text==='wellnessFloodOrder'))
+ assert.ok(declaration && order)
+ const calls=[],snapshot={now:1234,state:{hydration:{startedAt:0,dueAt:1000,intervalMinutes:1}}}
+ let reads=0
+ const window=(id,destroyed=false,visible=true)=>({isDestroyed:()=>destroyed,isVisible:()=>visible,webContents:{send:(channel,payload)=>calls.push({id,channel,payload})}})
+ const context={module:{exports:null},mainWindow:window('main'),wellnessSnapshot:()=>{reads++;return snapshot},
+  desktopModuleWindows:new Map([['quick',window('quick')],['todos',window('todos')],['health',window('health')],['closed',window('closed',true)]]),
+  desktopZoneWindows:new Map([['project',window('project')]]),noteWindows:new Map([['note',window('note')],['closed-note',window('closed-note',true)]])}
+ vm.runInNewContext(ts.transpileModule(`${order.getText(ast)};${declaration.getText(ast)};module.exports={publishWellness,wellnessFloodOrder}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
+ const api=context.module.exports
+ assert.deepEqual(Array.from(api.wellnessFloodOrder()),['health','quick','todos','zone:project','note:note','main'])
+ api.publishWellness()
+ assert.equal(reads,1)
+ assert.deepEqual(calls.map(call=>call.id).sort(),['health','main','note','project','quick','todos'])
+ assert.ok(calls.every(call=>call.channel==='wellness:changed' && call.payload===snapshot))
+ context.desktopModuleWindows.set('quick',window('quick',false,false))
+ assert.deepEqual(Array.from(api.wellnessFloodOrder()),['health','todos','zone:project','note:note','main'])
+ context.mainWindow=null
+ context.desktopModuleWindows.clear();context.desktopZoneWindows.clear();context.noteWindows.clear()
+ calls.length=0
+ api.publishWellness()
+ assert.equal(calls.length,0)
+ assert.deepEqual(Array.from(api.wellnessFloodOrder()),[])
+})
 test('health dock follows any supported edge and detaches once it is dragged away',()=>{
  const {findWidgetDock,dockedWidgetBounds,fitDockedParent,validWidgetDock}=loadTypeScript('src/main/widget-docking.ts')
  const parent={x:100,y:100,width:300,height:400},child={x:100,y:500,width:300,height:128}
@@ -89,7 +117,7 @@ test('docked fitting preserves normal and collapsed layouts and minimum window s
  }
 })
 
-test('window callbacks apply width-only dock fitting and preserve ordinary right resizing',()=>{
+test('window callbacks snap every resized edge, honor disabled snapping and preserve dock fitting',()=>{
  const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),{EventEmitter}=require('node:events')
  const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
  const declarations=['healthWidgetSize','snapDesktopModuleBounds','bindDesktopWidgetMovement'].map(name=>{
@@ -98,14 +126,14 @@ test('window callbacks apply width-only dock fitting and preserve ordinary right
   return statement.getText(ast)
  }).join(';')
  const compiled=ts.transpileModule(declarations+';module.exports=bindDesktopWidgetMovement',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
- function windowCase(docked){
-  const raw={x:0,y:0,width:1200,height:400},applied=[],window=new EventEmitter()
+ function windowCase(docked,{raw={x:0,y:0,width:1200,height:400},neighbors=[],snapMode='none',minimum=[300,160]}={}){
+  const applied=[],window=new EventEmitter()
   let bounds=raw,prevented=0,persisted=0
-  Object.assign(window,{isDestroyed:()=>false,isVisible:()=>true,getBounds:()=>bounds,getMinimumSize:()=>[300,160],setBounds:next=>{bounds=next;applied.push(next)}})
+  Object.assign(window,{isDestroyed:()=>false,isVisible:()=>true,getBounds:()=>bounds,getMinimumSize:()=>minimum,setBounds:next=>{bounds=next;applied.push(next)}})
   const context={module:{exports:null},...loadTypeScript('src/main/widget-snap.ts'),...loadTypeScript('src/main/widget-docking.ts'),
    screen:{getDisplayNearestPoint:()=>({workArea:{x:0,y:0,width:1366,height:728}})},
-   store:{data:{settings:{snapMode:'none',desktopSnapDistance:10},desktopModules:docked?[{id:'health',kind:'health',visible:true,x:0,y:0,width:300,height:108,dock:{parentId:'todos',edge:'right',offset:0}}]:[]}},
-   desktopModuleWindows:new Map([['todos',window]]),desktopZoneWindows:new Map(),resizingDesktopWidgets:new Set(),draggingDesktopWidgets:new Set(),desktopDragOrigins:new Map(),
+   store:{data:{settings:{snapMode,desktopSnapDistance:10},desktopModules:docked?[{id:'health',kind:'health',visible:true,x:0,y:0,width:300,height:108,dock:{parentId:'todos',edge:'right',offset:0}}]:[]}},
+   desktopModuleWindows:new Map([['todos',window],...neighbors.map((neighbor,index)=>[`neighbor-${index}`,{isDestroyed:()=>Boolean(neighbor.destroyed),isVisible:()=>neighbor.visible!==false,getBounds:()=>neighbor.bounds}])]),desktopZoneWindows:new Map(),resizingDesktopWidgets:new Set(),draggingDesktopWidgets:new Set(),desktopDragOrigins:new Map(),
    followDockedHealth:()=>{},isDesktopWidgetInteracting:()=>false}
   vm.runInNewContext(compiled,context)
   context.module.exports('todos',window,new Set(),()=>{persisted++})
@@ -123,6 +151,53 @@ test('window callbacks apply width-only dock fitting and preserve ordinary right
  ordinary.window.emit('will-resize',ordinary.event,ordinary.raw,{edge:'right'})
  assert.deepEqual(ordinary.applied,[])
  assert.deepEqual(ordinary.counts(),{prevented:0,persisted:0})
+ for(const [edge,raw,neighbor,expected] of resizeSnapCases){
+  const resize=windowCase(false,{raw,neighbors:[{bounds:neighbor}],snapMode:'edge'})
+  resize.window.emit('will-resize',resize.event,raw,{edge})
+  assert.deepEqual(resize.applied,[expected],edge)
+  assert.deepEqual(resize.counts(),{prevented:1,persisted:0})
+  resize.window.emit('resized')
+  assert.deepEqual(resize.counts(),{prevented:1,persisted:1})
+ }
+ const right=resizeSnapCases.find(([edge])=>edge==='right'),[,raw,neighbor]=right
+ for(const options of [{snapMode:'none'},{neighbors:[{bounds:neighbor,visible:false}]},{neighbors:[{bounds:neighbor,destroyed:true}]},{minimum:[401,160]}]){
+  const resize=windowCase(false,{raw,neighbors:[{bounds:neighbor}],snapMode:'edge',...options})
+  resize.window.emit('will-resize',resize.event,raw,{edge:'right'})
+  assert.deepEqual(resize.applied,[])
+  assert.equal(resize.counts().prevented,0)
+ }
+})
+
+const resizeSnapCases=[
+ ['left',{x:406,y:300,width:394,height:300},{x:100,y:300,width:300,height:300},{x:400,y:300,width:400,height:300}],
+ ['right',{x:400,y:300,width:394,height:300},{x:800,y:300,width:300,height:300},{x:400,y:300,width:400,height:300}],
+ ['top',{x:400,y:306,width:400,height:294},{x:400,y:100,width:400,height:200},{x:400,y:300,width:400,height:300}],
+ ['bottom',{x:400,y:300,width:400,height:294},{x:400,y:600,width:400,height:200},{x:400,y:300,width:400,height:300}],
+ ['top-left',{x:406,y:406,width:394,height:394},{x:100,y:100,width:300,height:300},{x:400,y:400,width:400,height:400}],
+ ['top-right',{x:400,y:406,width:394,height:394},{x:800,y:100,width:300,height:300},{x:400,y:400,width:400,height:400}],
+ ['bottom-left',{x:406,y:400,width:394,height:394},{x:100,y:800,width:300,height:300},{x:400,y:400,width:400,height:400}],
+ ['bottom-right',{x:400,y:400,width:394,height:394},{x:800,y:800,width:300,height:300},{x:400,y:400,width:400,height:400}]
+]
+
+test('resize magnetism keeps stationary edges fixed and releases beyond the snap distance',()=>{
+ const {snapResizedWidgetBounds}=loadTypeScript('src/main/widget-snap.ts')
+ const area={x:0,y:0,width:1920,height:1040}
+ for(const [edge,raw,neighbor,expected] of resizeSnapCases){
+  const before=structuredClone({raw,neighbor})
+  assert.deepEqual(snapResizedWidgetBounds(raw,area,[neighbor],10,edge),expected,edge)
+  const released={...raw}
+  if(edge.includes('left')){released.x+=24;released.width-=24}
+  if(edge.includes('right'))released.width-=24
+  if(edge.includes('top')){released.y+=24;released.height-=24}
+  if(edge.includes('bottom'))released.height-=24
+  assert.deepEqual(snapResizedWidgetBounds(released,area,[neighbor],10,edge),released,`${edge} releases`)
+  assert.deepEqual({raw,neighbor},before)
+ }
+ assert.deepEqual(snapResizedWidgetBounds({x:400,y:300,width:394,height:300},area,[{x:800,y:700,width:300,height:300}],10,'right'),{x:400,y:300,width:394,height:300})
+ assert.deepEqual(snapResizedWidgetBounds({x:400,y:300,width:394,height:300},area,[{x:500,y:300,width:300,height:300}],10,'right'),{x:400,y:300,width:400,height:300})
+ const secondDisplay={x:-1920,y:40,width:1920,height:1040}
+ assert.deepEqual(snapResizedWidgetBounds({x:-1914,y:46,width:400,height:300},secondDisplay,[],10,'top-left'),{x:-1920,y:40,width:406,height:306})
+ assert.deepEqual(snapResizedWidgetBounds({x:-600,y:700,width:594,height:374},secondDisplay,[],10,'bottom-right'),{x:-600,y:700,width:600,height:380})
 })
 
 test('overdue badge follows scheduled instant and excludes completed or undated tasks',()=>{

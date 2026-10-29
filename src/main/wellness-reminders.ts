@@ -16,7 +16,7 @@ export interface ReminderClock {
   planTime?: string
 }
 export type ReminderKind = keyof ReminderState
-export interface WellnessSnapshot { state: ReminderState; paused: boolean; now: number; hydrationPlan?: HydrationPlanSnapshot; undo?: { id: string; kind: ReminderKind; expiresAt: number } }
+export interface WellnessSnapshot { state: ReminderState; paused: boolean; now: number; hydrationPlan?: HydrationPlanSnapshot; floodOrder?: string[]; undo?: { id: string; kind: ReminderKind; expiresAt: number } }
 
 export interface ReminderState {
   hydration?: ReminderClock

@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { hydrationCupMl, hydrationReminderVisual, reminderVisual, type ReminderKind, type WellnessSnapshot } from '../../main/wellness-reminders'
 import type { AppData } from '../../main/types'
 import HealthPhysics from './HealthPhysics.vue'
+import AssistantIcon from './AssistantIcon.vue'
 import { healthEffects, spineSegments, waterOverflowEffects } from '../health-effects'
 import { hydrationPlanCanRecord, type HydrationRecording } from '../../main/hydration-plan'
 
@@ -15,10 +16,13 @@ const snapshot = ref<WellnessSnapshot>({ state: {}, paused: false, now: Date.now
 const now = ref(Date.now())
 const plan = computed(() => snapshot.value.hydrationPlan)
 const canRecordWater = computed(() => !plan.value || hydrationPlanCanRecord(plan.value, snapshot.value.state.hydration, snapshot.value.paused ? snapshot.value.now : now.value))
-const goalEditor = ref<HTMLFormElement | null>(null)
+const goalEditor = ref<HTMLDialogElement | null>(null)
 const goalInput = ref<HTMLInputElement | null>(null)
-const goalMl = ref(props.data.settings.hydrationPlan.goalMl)
+const goalTrigger = ref<HTMLButtonElement | null>(null)
+const goalMl = ref(String(props.data.settings.hydrationPlan.goalMl))
 const goalError = ref('')
+const goalValue = computed(() => /^\d+$/.test(goalMl.value.trim()) ? Number(goalMl.value) : NaN)
+const validGoal = computed(() => Number.isInteger(goalValue.value) && goalValue.value >= 500 && goalValue.value <= 5000)
 const error = ref('')
 const feedback = ref('')
 const menuFeedback=ref(''),menuFailed=ref(false),menuFeedbackUntil=ref(0)
@@ -87,24 +91,36 @@ async function complete(kind: ReminderKind) {
 }
 async function openGoalEditor() {
   if (pending.value) return
-  goalMl.value = props.data.settings.hydrationPlan.goalMl
+  goalMl.value = String(props.data.settings.hydrationPlan.goalMl)
   goalError.value = ''; error.value = ''
   await nextTick()
-  goalEditor.value?.showPopover()
+  goalEditor.value?.showModal()
   goalInput.value?.focus()
   goalInput.value?.select()
 }
+function closeGoalEditor() {
+  if (!pending.value) goalEditor.value?.close()
+}
 async function saveGoal() {
   if (pending.value) return
+  if (!validGoal.value) {
+    goalError.value = '请输入 500–5000 ml 的整数'
+    goalInput.value?.focus()
+    return
+  }
   pending.value = true
   goalError.value = ''
   try {
-    await api.wellness.setHydrationGoal(Number(goalMl.value))
-    snapshot.value = await api.wellness.get()
-    feedback.value = `今日总喝水量已设为 ${goalMl.value}ml`
-    goalEditor.value?.hidePopover()
-  } catch (failure) { goalError.value = failure instanceof Error ? failure.message : '目标未保存，请重试。' }
+    await api.wellness.setHydrationGoal(goalValue.value)
+    feedback.value = `每日饮水目标已设为 ${goalValue.value}ml`
+    menuFeedback.value = feedback.value
+    menuFailed.value = false
+    menuFeedbackUntil.value = Date.now() + 2500
+  } catch { goalError.value = '保存失败，目标未更改，请重试' }
   finally { pending.value = false }
+  await nextTick()
+  if (goalError.value) goalInput.value?.focus()
+  else goalEditor.value?.close()
 }
 onMounted(async () => {
   disposeFeedback=api.wellness.onFeedback(result=>{error.value='';menuFeedback.value=result.message;menuFailed.value=result.failed;menuFeedbackUntil.value=Date.now()+5000})
@@ -127,7 +143,7 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
     </button>
     </div>
     <div class="health-control hydration-control">
-    <button v-if="plan" type="button" class="daily-reservoir" aria-label="设置今日总喝水量" aria-haspopup="dialog" :disabled="pending" :title="`每日目标 ${plan.goalMl}ml，剩余 ${Math.max(0,plan.goalMl-plan.consumedMl)}ml；右键设置今日总喝水量`" @click="openGoalEditor" @contextmenu.prevent="openGoalEditor" @keydown.shift.f10.prevent="openGoalEditor">
+    <button v-if="plan" ref="goalTrigger" type="button" class="daily-reservoir" aria-label="设置今日总喝水量" aria-haspopup="dialog" :disabled="pending" :title="`每日目标 ${plan.goalMl}ml，剩余 ${Math.max(0,plan.goalMl-plan.consumedMl)}ml；右键设置今日总喝水量`" @click="openGoalEditor" @contextmenu.prevent="openGoalEditor" @keydown.shift.f10.prevent="openGoalEditor">
       <svg viewBox="0 0 28 51" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><defs><clipPath id="daily-bottle"><path d="M9 8v6L5 20v28q0 3 3 3h12q3 0 3-3V20l-4-6V8z"/></clipPath></defs><g clip-path="url(#daily-bottle)"><rect class="reservoir-fill" x="4" :y="51-43*Math.max(0,1-plan.consumedMl/plan.goalMl)" width="20" height="43" fill="#78cbdc" fill-opacity=".8"/></g><path class="bottle-outline" d="M9 8v6L5 20v28q0 3 3 3h12q3 0 3-3V20l-4-6V8z M9 8h10V4H9z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
       <span class="daily-copy"><strong>{{ plan.goalMl/1000 }}<em>L</em></strong><small>已喝 <b>{{ plan.consumedMl }}</b><em>ml</em></small><small>剩余 <b>{{ Math.max(0,plan.goalMl-plan.consumedMl) }}</b><em>ml</em></small></span>
     </button>
@@ -143,11 +159,13 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       <span>喝水<small>{{ currentCupMl }}ml</small></span><i v-if="water.overdue" aria-hidden="true"/>
     </button>
     </div>
-    <form ref="goalEditor" popover="auto" role="dialog" class="health-popover goal-editor" aria-label="设置今日总喝水量" @submit.prevent="saveGoal">
-      <div class="goal-editor-heading"><label for="bottle-hydration-goal">今日总喝水量</label><button type="button" :disabled="pending" @click="goalEditor?.hidePopover()">取消</button></div>
-      <div class="goal-editor-fields"><input id="bottle-hydration-goal" ref="goalInput" v-model.number="goalMl" type="number" min="500" max="5000" step="1" required aria-label="今日总喝水量毫升" :disabled="pending" @input="goalError=''"/><span>ml</span><button type="submit" :disabled="pending">{{ pending ? '保存中…' : '保存' }}</button></div>
-      <span v-if="goalError" role="alert" class="goal-editor-error">{{ goalError }}</span><span v-else class="goal-editor-hint">同步健康设置的每日目标，已喝水量保留。</span>
+    <dialog ref="goalEditor" class="health-popover goal-editor" aria-labelledby="bottle-goal-heading" :aria-busy="pending" @cancel.prevent="closeGoalEditor" @close="goalTrigger?.focus({preventScroll:true})">
+    <form @submit.prevent="saveGoal">
+      <div class="goal-editor-heading"><label id="bottle-goal-heading" for="bottle-hydration-goal">每日饮水目标</label><button type="button" class="goal-editor-close" aria-label="取消设置" title="取消设置（Esc）" :disabled="pending" @click="closeGoalEditor"><AssistantIcon name="close"/></button></div>
+      <div class="goal-editor-fields"><div class="goal-editor-amount" :class="{invalid:goalError && !validGoal}"><input id="bottle-hydration-goal" ref="goalInput" v-model="goalMl" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="今日总喝水量毫升" aria-describedby="bottle-goal-message" :aria-invalid="Boolean(goalError) && !validGoal" :disabled="pending" @input="goalError=''"/><span aria-hidden="true">ml</span></div><button type="submit" :disabled="pending">{{ pending ? '保存中…' : '保存' }}</button></div>
+      <p id="bottle-goal-message" class="goal-editor-message" :class="{'goal-editor-error':goalError}" :role="goalError ? 'alert' : undefined">{{ goalError || '500–5000 ml · 保留已喝水量' }}</p>
     </form>
+    </dialog>
     <span class="health-feedback" role="status">{{ feedback }}</span><span v-if="error" class="health-error" role="alert">{{ error }}</span><span v-else-if="menuFeedback && (menuFailed || now<menuFeedbackUntil)" class="health-error" :class="{'health-success':!menuFailed}" :role="menuFailed?'alert':'status'">{{menuFeedback}}</span>
   </section>
 </template>
@@ -155,14 +173,26 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
 <style scoped>
 .wellness-controls ::selection{background:transparent;color:inherit}
 .daily-reservoir{cursor:pointer;font-family:inherit;line-height:inherit}
-.health-popover.goal-editor{position:fixed;inset:5px;margin:0;width:auto;max-width:none;max-height:calc(100vh - 10px);box-sizing:border-box;overflow:auto;padding:7px 10px;background:#25342c;color:#e5eee7;cursor:default}
-.goal-editor:popover-open{display:flex;flex-direction:column;gap:5px}
-.goal-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}
-.goal-editor-heading button{padding:1px 5px;min-height:21px}
-.goal-editor-fields{display:grid;grid-template-columns:minmax(64px,1fr) auto auto;gap:7px;align-items:center}
-.goal-editor-fields input{min-width:0;width:100%;box-sizing:border-box;border:1px solid #789282;border-radius:4px;background:#1c2822;color:#eef7f1;font:inherit;font-size:14px;padding:4px 7px;user-select:text;caret-color:#bce9cc}
-.goal-editor .goal-editor-fields button{min-height:27px;background:#a9d9bf;color:#14291e;font-weight:600}
-.goal-editor-hint,.goal-editor-error{font-size:10px;line-height:1.3}.goal-editor-error{color:#ffd0c7}
+.health-popover.goal-editor{position:fixed;inset:4px;margin:0;width:auto;max-width:360px;max-height:calc(100vh - 8px);box-sizing:border-box;overflow:auto;padding:6px 10px 8px;border-color:#516b5e;border-radius:6px;background:#202a25;color:#edf5ef;font:12px 'Microsoft YaHei UI',sans-serif;cursor:default;scrollbar-width:thin;scrollbar-color:#7fa38f #202a25}
+.goal-editor::backdrop{background:#101b1659}
+.goal-editor[open]>form{display:flex;flex-direction:column;gap:4px}
+.goal-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:22px;color:#d4e5d9;font-size:12px;line-height:18px;font-weight:600}
+.goal-editor .goal-editor-close{display:grid;place-items:center;flex:none;width:24px;height:22px;padding:0;border-radius:4px;background:transparent;color:#c0d3c6}
+.goal-editor-close svg{width:14px;height:14px}
+.goal-editor-fields{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:8px;align-items:stretch}
+.goal-editor-amount{display:flex;align-items:center;gap:6px;min-width:0;height:34px;box-sizing:border-box;padding:0 9px;border:1px solid #6b8877;border-radius:4px;background:#15231c}
+.goal-editor-amount:focus-within{border-color:#bce9cc;outline:1px solid #bce9cc;outline-offset:0}
+.goal-editor-amount.invalid{border-color:#efaa9e;outline-color:#efaa9e}
+.goal-editor-fields input{min-width:0;width:100%;padding:0;border:0;outline:0;background:transparent;color:#f0f8f3;font:600 20px/28px 'Microsoft YaHei UI',sans-serif;font-variant-numeric:tabular-nums;user-select:text;caret-color:#bce9cc}
+.goal-editor-fields input::selection{background:#bce9cc;color:#14291e}
+.goal-editor-amount>span{flex:none;color:#bbd0c2;font-size:11px}
+.goal-editor .goal-editor-fields button{min-height:34px;padding:4px;border-radius:4px;background:#a9d9bf;color:#14291e;font-size:12px;font-weight:600;line-height:18px}
+.goal-editor .goal-editor-fields button:hover:not(:disabled){background:#bce9cc}
+.goal-editor .goal-editor-fields button:active:not(:disabled){background:#95c7ac}
+.goal-editor .goal-editor-fields button:disabled{background:#7fa38f;color:#13251b;opacity:1}
+.goal-editor button:disabled{cursor:wait;opacity:.6}
+.goal-editor .goal-editor-message{min-height:14px;margin:0;color:#bdd2c4;font-size:10px;line-height:14px}
+.goal-editor .goal-editor-error{color:#ffd0c7}
 .health-success{color:#d4eadc!important}
 .vertebra.loose{transform-box:fill-box;transform-origin:center;animation:bone-loosen var(--shake-duration) ease-in-out infinite}
 @keyframes bone-loosen{0%,42%,100%{transform:translateX(0) rotate(0)}8%,24%{transform:translateX(calc(-1 * var(--shake-distance))) rotate(calc(-1 * var(--shake-angle)))}16%,32%{transform:translateX(var(--shake-distance)) rotate(var(--shake-angle))}}

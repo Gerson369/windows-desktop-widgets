@@ -1,10 +1,15 @@
+export function panelFloodLevel(percent: number, overdue: boolean, index: number): number {
+  if (!overdue || !Number.isFinite(percent) || !Number.isInteger(index) || index < 0) return 0
+  return Math.max(0, Math.min(1, (percent / 100 - 1) / 3 - index))
+}
+
 export function healthEffects(percent: number, overdue: boolean) {
   const excess = overdue ? Math.max(0, percent / 100 - 1) : 0
   const severity = Math.min(1, excess / 2)
   const color = overdue ? `rgb(244, ${Math.round(207 - 57 * severity)}, ${Math.round(156 - 96 * severity)})` : undefined
   const fallenCount = overdue ? Math.min(10, Math.max(0, Math.floor((percent - 100) / 10))) : 0
   const looseness = overdue && fallenCount < 10 ? Math.max(0, Math.min(1, (percent - 100 - fallenCount * 10) / 10)) : 0
-  return { color, severity, spill: Math.min(1, excess), flood: Math.min(1, excess / 3), separation: fallenCount / 10, looseness }
+  return { color, severity, spill: Math.min(1, excess), flood: panelFloodLevel(percent, overdue, 0), separation: fallenCount / 10, looseness }
 }
 export function spineSegments(progress: number, separation: number, looseness = 0) {
   const bend = progress * 10

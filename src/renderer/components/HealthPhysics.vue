@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { bodyHalfHeight, stepBody, type PhysicsBody } from '../health-physics'
+import HydrationFlood from './HydrationFlood.vue'
 
 const props = defineProps<{ cup: SVGSVGElement | null; spine: SVGSVGElement | null; spill: number; flooding: number; wet: boolean; separation: number; paused: boolean; boneColor: string }>()
 const emit = defineEmits<{ enabled: [value: boolean]; pieces: [ids: number[]] }>()
@@ -51,7 +52,7 @@ function spawnDrop() {
   if (!props.cup) return
   const right = sequence++ % 2 === 0, point = sourcePoint(props.cup, right ? 33 : 8, 9)
   if (!point) return
-  const surface = 40 + (height - 40) * (1 - props.flooding)
+  const surface = height * (1 - props.flooding)
   drops.push({ x: point.x, y: point.y, vx: right ? 16 : -16, vy: 0, width: 2.5, height: 5, angle: 0, spin: 0,
     floor: point.y < surface ? Math.min(surface, height - 3) : height - 3 })
 }
@@ -137,5 +138,10 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { if (frame) cancelAnimationFrame(frame); reduced?.removeEventListener('change', environmentChanged); document.removeEventListener('visibilitychange', environmentChanged); window.removeEventListener('resize', resize); emit('enabled', false) })
 </script>
-<template><canvas ref="canvas" class="health-physics" aria-hidden="true" :data-water-particles="counts.water" :data-fallen-bones="counts.bones" :data-active="counts.active"/></template>
-<style scoped>.health-physics{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2}</style>
+<template>
+  <HydrationFlood :wet="wet" :level="flooding" :paused="paused"/>
+  <canvas ref="canvas" class="health-physics" aria-hidden="true" :data-water-particles="counts.water" :data-fallen-bones="counts.bones" :data-active="counts.active"/>
+</template>
+<style scoped>
+.health-physics{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2}
+</style>
