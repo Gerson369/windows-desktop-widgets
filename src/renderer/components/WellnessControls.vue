@@ -8,7 +8,7 @@ import HealthPhysics from './HealthPhysics.vue'
 import HealthUndoButton from './HealthUndoButton.vue'
 import AssistantIcon from './AssistantIcon.vue'
 import { healthEffects, spineSegments, waterOverflowEffects } from '../health-effects'
-import { hydrationPlanCanRecord, type HydrationRecording } from '../../main/hydration-plan'
+import { hydrationCupCapacity, hydrationPlanCanRecord, type HydrationRecording } from '../../main/hydration-plan'
 
 const cupSvg = ref<SVGSVGElement | null>(null), spineSvg = ref<SVGSVGElement | null>(null), physicsActive = ref(false), fallingBones = ref<number[]>([])
 const props = defineProps<{ data: AppData }>()
@@ -28,7 +28,7 @@ const error = ref('')
 const feedback = ref('')
 const menuFeedback=ref(''),menuFailed=ref(false),menuFeedbackUntil=ref(0)
 const pending = ref(false)
-const undoFailed = ref(false)
+const undoFailed = ref<ReminderKind | null>(null)
 const lastDone = ref<ReminderKind | null>(null)
 const feedbackUntil = ref(0)
 const recentlyDone = (kind: ReminderKind) => lastDone.value === kind && now.value < feedbackUntil.value
@@ -39,26 +39,33 @@ let disposeFeedback: (() => void) | undefined
 const enabled = (kind: ReminderKind) => kind === 'hydration' ? props.data.settings.hydrationReminderEnabled || props.data.settings.hydrationPlan.enabled : props.data.settings.sedentaryReminderEnabled
 const visual = (kind: ReminderKind) => kind === 'hydration' ? hydrationReminderVisual(snapshot.value, snapshot.value.paused ? snapshot.value.now : now.value) : reminderVisual(snapshot.value.state[kind], snapshot.value.paused ? snapshot.value.now : now.value)
 const water = computed(() => visual('hydration'))
-const currentCupMl = computed(() => hydrationCupMl(props.data.settings.hydrationPlan.cupMl, water.value.progress))
+const cupCapacity = computed(() => hydrationCupCapacity(props.data.settings.hydrationPlan, plan.value?.consumedMl ?? 0, snapshot.value.state.hydration))
+const currentCupMl = computed(() => hydrationCupMl(cupCapacity.value, water.value.progress))
 const spine = computed(() => visual('sedentary'))
 const waterEffects = computed(() => waterOverflowEffects(water.value.percent, water.value.overdue))
 const spineEffects = computed(() => healthEffects(spine.value.percent, spine.value.overdue))
 const vertebrae = computed(() => spineSegments(spine.value.progress, spineEffects.value.separation, spineEffects.value.looseness))
-const undo = computed(() => snapshot.value.undo && snapshot.value.undo.expiresAt > now.value ? snapshot.value.undo : undefined)
-const undoProgress = computed(() => undo.value ? Math.max(0, Math.min(1, (undo.value.expiresAt - now.value) / 15000)) : 0)
-const canUndo = (kind: ReminderKind): boolean => undo.value?.kind === kind
+const undo = (kind: ReminderKind) => {
+  const record = snapshot.value.undo?.[kind]
+  return record && record.expiresAt > now.value ? record : undefined
+}
+const undoProgress = (kind: ReminderKind) => {
+  const record = undo(kind)
+  return record ? Math.max(0, Math.min(1, (record.expiresAt - now.value) / 15000)) : 0
+}
+const canUndo = (kind: ReminderKind): boolean => Boolean(undo(kind))
 const undoLabel = computed(() => {
-  if (undoFailed.value) return undo.value ? '撤销未完成，可重试' : '此操作已无法撤销'
-  if (undo.value) return undo.value.kind === 'hydration' ? '已记录喝水' : '已完成活动'
+  if (undoFailed.value) return undo(undoFailed.value) ? '撤销未完成，可重试' : '此操作已无法撤销'
   return '已撤销'
 })
-async function undoCompletion() {
-  if (!undo.value || pending.value) return
+async function undoCompletion(kind: ReminderKind) {
+  const record = undo(kind)
+  if (!record || pending.value) return
   pending.value = true
-  undoFailed.value = false
+  undoFailed.value = null
   error.value = ''; feedback.value = ''
-  try { snapshot.value = await api.wellness.undo(undo.value.id); lastDone.value = null; feedback.value = '已撤销，恢复原来的记录与计时' }
-  catch { undoFailed.value = true }
+  try { snapshot.value = await api.wellness.undo(record.id); if (lastDone.value === kind) lastDone.value = null; feedback.value = '已撤销，恢复原来的记录与计时' }
+  catch { undoFailed.value = kind }
   finally { pending.value = false; now.value = Date.now() }
 }
 const label = (kind: ReminderKind): string => {
@@ -81,7 +88,7 @@ async function context(kind: ReminderKind) {
 async function action(kind: ReminderKind, mode: 'done' | 'snooze' | 'enable', recording?: HydrationRecording) {
   if (pending.value) return false
   pending.value = true
-  undoFailed.value = false
+  undoFailed.value = null
   error.value = ''
   feedback.value = '';menuFeedback.value=''
   try {
@@ -152,7 +159,7 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       <svg ref="spineSvg" class="spine-visual" viewBox="4 0 34 51" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><path class="spine-outline" :opacity="1-spineEffects.separation" :d="`M21 4 Q${21 + spine.progress * 20} 27 21 51`" fill="none" stroke="currentColor" stroke-width="1.4"/><g v-for="(bone,i) in vertebrae" :key="i" class="vertebra" :class="{loose:bone.looseness>0 && !fallingBones.includes(i)}" :style="{'--shake-distance':`${.15+bone.looseness*.7}px`,'--shake-angle':`${1+bone.looseness*7}deg`,'--shake-duration':`${1.2-bone.looseness*.7}s`}"><rect :x="bone.x" :y="bone.y" width="8" :height="bone.height" rx="1" :class="{separated:bone.separated,falling:fallingBones.includes(i)}" :transform="`rotate(${bone.angle} ${bone.x+4} ${bone.y+bone.height/2})`" fill="currentColor"/></g><path :opacity="1-spineEffects.separation" d="M14 51q7-4 14 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
       <span>活动<small :class="{'undo-placeholder':canUndo('sedentary')}">{{ enabled('sedentary') ? `${spine.percent}%` : '—' }}</small></span><i v-if="spine.overdue" aria-hidden="true"/>
     </button>
-    <HealthUndoButton v-if="canUndo('sedentary')" class="activity-undo" :pending="pending" :progress="undoProgress" :failed="undoFailed" :completed="recentlyDone('sedentary')" @undo="undoCompletion"/>
+    <HealthUndoButton v-if="canUndo('sedentary')" class="activity-undo" :pending="pending" :progress="undoProgress('sedentary')" :failed="undoFailed === 'sedentary'" :completed="recentlyDone('sedentary')" aria-label="撤销最近一次活动" @undo="undoCompletion('sedentary')"/>
     </div>
     <div class="health-control hydration-control">
     <button v-if="plan" ref="goalTrigger" type="button" class="daily-reservoir" aria-label="设置今日总喝水量" aria-haspopup="dialog" :disabled="pending" :title="`每日目标 ${plan.goalMl}ml，剩余 ${Math.max(0,plan.goalMl-plan.consumedMl)}ml；右键设置今日总喝水量`" @click="openGoalEditor" @contextmenu.prevent="openGoalEditor" @keydown.shift.f10.prevent="openGoalEditor">
@@ -160,7 +167,7 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       <span class="daily-copy"><strong>{{ plan.goalMl/1000 }}<em>L</em></strong><small>已喝 <b>{{ plan.consumedMl }}</b><em>ml</em></small><small>剩余 <b>{{ Math.max(0,plan.goalMl-plan.consumedMl) }}</b><em>ml</em></small></span>
     </button>
     <div class="health-control water-control">
-    <button class="health-icon water-icon" :style="{'--overdue-color':'#b3e4ed','--water-fill':'#78cbdc'}" :class="{ overdue: water.overdue }" :disabled="pending || !canRecordWater" :title="`点击喝完并记录当前 ${currentCupMl}ml；${label('hydration')}。右键设置`" aria-label="喝完当前杯水" aria-haspopup="menu" @click="complete('hydration')" @keydown.shift.f10.prevent="context('hydration')" @contextmenu.prevent="context('hydration')">
+    <button class="health-icon water-icon" :style="{'--overdue-color':'#b3e4ed','--water-fill':'#78cbdc'}" :class="{ overdue: water.overdue }" :disabled="pending || !canRecordWater" :title="`点击喝完并记录当前 ${currentCupMl}ml；本轮满杯约 ${cupCapacity}ml；${label('hydration')}。右键设置`" aria-label="喝完当前杯水" aria-haspopup="menu" @click="complete('hydration')" @keydown.shift.f10.prevent="context('hydration')" @contextmenu.prevent="context('hydration')">
       <svg ref="cupSvg" class="water-cup" viewBox="0 0 44 39" preserveAspectRatio="xMidYMax meet" role="img" :aria-label="`当前杯水量 ${currentCupMl}ml，${label('hydration')}`">
         <defs><clipPath id="health-cup"><path d="M9 8h23l-3 28q-.3 3-3 3H15q-2.7 0-3-3z"/></clipPath></defs>
         <g clip-path="url(#health-cup)"><g class="water-fill" :style="{ transform: `translateY(${30 * (1 - water.progress)}px)` }">
@@ -171,7 +178,7 @@ onBeforeUnmount(() => { disposeFeedback?.();disposeState?.(); if (timer) window.
       </svg>
       <span>喝水<small>{{ currentCupMl }}ml</small></span><i v-if="water.overdue" aria-hidden="true"/>
     </button>
-    <HealthUndoButton v-if="canUndo('hydration')" class="water-undo" :pending="pending" :progress="undoProgress" :failed="undoFailed" :completed="recentlyDone('hydration')" @undo="undoCompletion"/>
+    <HealthUndoButton v-if="canUndo('hydration')" class="water-undo" :pending="pending" :progress="undoProgress('hydration')" :failed="undoFailed === 'hydration'" :completed="recentlyDone('hydration')" aria-label="撤销最近一次喝水" @undo="undoCompletion('hydration')"/>
     </div>
     </div>
     <dialog ref="goalEditor" class="health-popover goal-editor" aria-labelledby="bottle-goal-heading" :aria-busy="pending" @cancel.prevent="closeGoalEditor" @close="goalTrigger?.focus({preventScroll:true})">

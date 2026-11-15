@@ -6,13 +6,13 @@ import { readFile, stat } from 'node:fs/promises'
 import { publicText } from './public-request'
 import { cityWeather, searchCities } from './weather-service'
 import { readMetrics } from './device-metrics'
-import { hydrationDayAt, hydrationPlanSnapshot, hydrationPlanClock, overdueHydrationClock, validateHydrationPlan, recordHydration } from './hydration-plan'
+import { hydrationDayAt, hydrationPlanSnapshot, hydrationPlanClock, overdueHydrationClock, validateHydrationPlan, recordHydration, hydrationCupCapacity } from './hydration-plan'
 import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, Tray } from 'electron'
 import { basename, extname, isAbsolute, join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { createId, defaultData, type AppData, type AppSettings, type DesktopIconArrangePlan, type DesktopModule, type DesktopZone, type InboxItem, type MappingItem, type OrganizerRule, type StickyNote, type StorageItem, type TodoItem } from './types'
 import { store } from './store'
-import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInventory, desktopCoverageProblems, migrateDesktopCollection, placeStartupWidgets } from './desktop-widgets'
+import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInventory, desktopCoverageProblems, migrateDesktopCollection, placeStartupWidgets, desktopItemTargetZone } from './desktop-widgets'
 import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea, type WidgetResizeEdge } from './widget-snap'
 import { dockedWidgetBounds, findWidgetDock, fitDockedParent } from './widget-docking'
 import { normalizeCollectionSorts, normalizeCollectionRules, type CollectionProgress } from './desktop-collection'
@@ -64,7 +64,7 @@ let shellDesktopItems: ShellDesktopItem[] = []
 let reminderTimer: NodeJS.Timeout | null = null
 let desktopSortTimer: NodeJS.Timeout | null = null
 let wellnessReminderState: ReminderState = {}
-let wellnessUndo: WellnessUndo | null = null
+let wellnessUndo: Partial<Record<ReminderKind, WellnessUndo>> = {}
 let wellnessPaused = false
 let wellnessPausedAt: number | null = null
 const wellnessNotifications = new Map<ReminderKind, Notification>()
@@ -963,10 +963,15 @@ const registerShortcuts = (): void => {
 }
 
 const currentWellnessUndo = (): WellnessSnapshot['undo'] => {
-  try {
-    validateWellnessUndo(wellnessUndo, wellnessUndo?.id, store.data.settings, store.data.hydrationDay, Date.now())
-    return { id: wellnessUndo.id, kind: wellnessUndo.kind, expiresAt: wellnessUndo.expiresAt }
-  } catch { return undefined }
+  const active: NonNullable<WellnessSnapshot['undo']> = {}
+  for (const kind of ['hydration', 'sedentary'] as const) {
+    const record = wellnessUndo[kind]
+    try {
+      validateWellnessUndo(record, record?.id, store.data.settings, store.data.hydrationDay, Date.now())
+      active[kind] = { id: record.id, kind, expiresAt: record.expiresAt }
+    } catch { delete wellnessUndo[kind] }
+  }
+  return Object.keys(active).length ? active : undefined
 }
 const wellnessFloodOrder = (): string[] => {
   const panels = new Map<string, BrowserWindow | null | undefined>([
@@ -1029,7 +1034,7 @@ const startReminderWatcher = (): void => {
     if (dayRefresh || hydrationDayAt(store.data.hydrationDay, now).date === store.data.hydrationDay.date) return
     dayRefresh = store.update(data => { data.hydrationDay = hydrationDayAt(data.hydrationDay, Date.now()) }).then(() => {
       delete wellnessReminderState.hydration
-      wellnessUndo = null
+      wellnessUndo = {}
       advanceWellness(Date.now())
       broadcastData()
     }).catch(console.error).finally(() => { dayRefresh = null })
@@ -1045,7 +1050,9 @@ const startReminderWatcher = (): void => {
     refreshHydrationDay(now)
     if (wellnessPausedAt !== null) {
       wellnessReminderState = resumeReminderClocks(wellnessReminderState, wellnessPausedAt, now)
-      if (wellnessUndo?.clock) wellnessUndo.clock = resumeReminderClocks({ [wellnessUndo.kind]: wellnessUndo.clock }, wellnessPausedAt, now)[wellnessUndo.kind]
+      for (const record of Object.values(wellnessUndo)) {
+        if (record.clock) record.clock = resumeReminderClocks({ [record.kind]: record.clock }, wellnessPausedAt, now)[record.kind]
+      }
     }
     wellnessPausedAt = null
     wellnessPaused = false
@@ -1240,7 +1247,7 @@ const registerIpc = (): void => {
     const updated = await store.update(data => {
       data.settings.hydrationPlan = validateHydrationPlan({ ...data.settings.hydrationPlan, goalMl })
     })
-    if (wellnessUndo?.kind === 'hydration') wellnessUndo = null
+    delete wellnessUndo.hydration
     wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration')
     advanceWellness(Date.now())
     broadcastData()
@@ -1250,7 +1257,7 @@ const registerIpc = (): void => {
   ipcMain.handle('wellness:resetHydration', async () => {
     await store.update(data => { data.hydrationDay = hydrationDayAt(undefined, Date.now()) })
     delete wellnessReminderState.hydration
-    if (wellnessUndo?.kind === 'hydration') wellnessUndo = null
+    delete wellnessUndo.hydration
     wellnessNotifications.get('hydration')?.close(); wellnessNotifications.delete('hydration')
     advanceWellness(Date.now())
     broadcastData()
@@ -1293,7 +1300,7 @@ const registerIpc = (): void => {
         const currentClock = clock && day.lastCupAt !== undefined && clock.startedAt < day.lastCupAt ? undefined : clock
         const visualNow = wellnessPausedAt ?? now
         const water = hydrationReminderVisual({ state: { ...wellnessReminderState, hydration: currentClock }, paused: wellnessPaused, now: visualNow, hydrationPlan: hydrationPlanSnapshot(data.settings.hydrationPlan, day, now) }, visualNow)
-        if (amountMl > hydrationCupMl(data.settings.hydrationPlan.cupMl, water.progress)) throw new Error('当前杯量已变化，请按水杯显示的水量重试。')
+        if (amountMl > hydrationCupMl(hydrationCupCapacity(data.settings.hydrationPlan, day.consumedMl, currentClock), water.progress)) throw new Error('当前杯量已变化，请按水杯显示的水量重试。')
         data.hydrationDay = next
         recorded = true
       })
@@ -1303,19 +1310,20 @@ const registerIpc = (): void => {
       broadcastData()
     } else wellnessReminderState = respondToReminder(store.data.settings, wellnessReminderState, kind, action, now)
     if (undo?.dayBefore) undo.dayAfter = structuredClone(hydrationDayAt(store.data.hydrationDay, Date.now()))
-    wellnessUndo = undo
+    if (undo) wellnessUndo[kind] = undo
+    else delete wellnessUndo[kind]
     wellnessNotifications.get(kind)?.close(); wellnessNotifications.delete(kind)
     publishWellness()
     return wellnessSnapshot()
   })
   ipcMain.handle('wellness:undo', async (_event, id: unknown) => {
-    const record = wellnessUndo
+    const record = Object.values(wellnessUndo).find(record => record.id === id)
     validateWellnessUndo(record, id, store.data.settings, store.data.hydrationDay, Date.now())
     if (record.dayBefore) await store.update(data => {
       data.hydrationDay = { ...structuredClone(record.dayBefore!), recordIds: [...new Set([...(record.dayBefore!.recordIds ?? []), ...(data.hydrationDay.recordIds ?? [])])] }
     })
     wellnessReminderState = { ...wellnessReminderState, [record.kind]: record.clock ? { ...record.clock } : undefined }
-    wellnessUndo = null
+    delete wellnessUndo[record.kind]
     wellnessNotifications.get(record.kind)?.close(); wellnessNotifications.delete(record.kind)
     advanceWellness(wellnessPausedAt ?? Date.now())
     broadcastData(); publishWellness()
@@ -1325,7 +1333,18 @@ const registerIpc = (): void => {
     if (typeof path !== 'string' || (!allowSystem && !isSafeFilesystemPath(path)) || ![...store.data.desktopItems.map(item => item.path), ...store.data.inboxItems.map(item => item.sourcePath)].includes(path)) throw new Error('请选择收纳框内的现有项目。')
     return path
   }
+  ipcMain.handle('desktop:setPinned', async (_event, path: unknown, pinned: unknown) => {
+    const source = requireCollectedPath(path, true)
+    if (typeof pinned !== 'boolean') throw new Error('置顶状态无效。')
+    const data = await store.update(data => {
+      data.desktopPinnedPaths = data.desktopPinnedPaths.filter(path => path !== source)
+      if (pinned) data.desktopPinnedPaths.push(source)
+    })
+    broadcastData()
+    return data
+  })
   const updateCollectedPath = async (source: string, target: string | null): Promise<AppData> => store.update(data => {
+    data.desktopPinnedPaths = [...new Set(data.desktopPinnedPaths.flatMap(path => path === source ? target ? [target] : [] : [path]))]
     const assignedZone = data.desktopAssignments[source]
     delete data.desktopAssignments[source]
     if (target && assignedZone) data.desktopAssignments[target] = assignedZone
@@ -1599,28 +1618,32 @@ const registerIpc = (): void => {
     return refreshDesktopGroups()
   })
   const assignDesktopItems = async (paths: unknown, zoneId: unknown): Promise<AppData> => {
-    if (!Array.isArray(paths) || !paths.length || paths.length > 500 || typeof zoneId !== 'string' || !store.data.desktopZones.some(zone => zone.id === zoneId)) throw new Error('请选择现有桌面项目和分类框。')
-    const selected: string[] = []
+    if (!Array.isArray(paths) || !paths.length || paths.length > 500 || typeof zoneId !== 'string' || (zoneId !== 'all' && !store.data.desktopZones.some(zone => zone.id === zoneId))) throw new Error('请选择现有桌面项目和分类框。')
+    const targets = new Map<string, string>()
     const additions: InboxItem[]=[]
     for(const raw of [...new Set(paths)]) {
       if(typeof raw!=='string') throw new Error('文件路径无效。')
-      if(store.data.desktopItems.some(item=>item.path===raw)) selected.push(raw)
+      const existing = store.data.desktopItems.some(item=>item.path===raw) || store.data.inboxItems.some(item=>item.sourcePath===raw)
+      if (zoneId === 'all' && existing) continue
+      if(store.data.desktopItems.some(item=>item.path===raw)) targets.set(raw, zoneId)
       else {
         if(!isSafeFilesystemPath(raw)) throw new Error('文件路径无效。')
         const metadata=await stat(raw)
-        selected.push(raw)
-        if(!store.data.inboxItems.some(item=>item.sourcePath===raw)) additions.push({id:createId(),type:'file',name:basename(raw),sourcePath:raw,createdAt:metadata.birthtime.toISOString(),modifiedAt:metadata.mtime.toISOString(),isDirectory:metadata.isDirectory(),archived:false,zoneId})
+        const target = zoneId === 'all' ? desktopItemTargetZone({ isDirectory: metadata.isDirectory(), extension: extname(raw).slice(1).toLowerCase(), category: classifyDesktopItem(basename(raw), metadata.isDirectory()) }, store.data.settings.collectionRules) : zoneId
+        if (!target || !store.data.desktopZones.some(zone => zone.id === target)) throw new Error('未找到可用分类，请重新整理桌面后重试。')
+        targets.set(raw, target)
+        if(!store.data.inboxItems.some(item=>item.sourcePath===raw)) additions.push({id:createId(),type:'file',name:basename(raw),sourcePath:raw,createdAt:metadata.birthtime.toISOString(),modifiedAt:metadata.mtime.toISOString(),isDirectory:metadata.isDirectory(),archived:false,zoneId:target})
       }
     }
     if(store.data.inboxItems.length+additions.length>1000) throw new Error('文件引用最多 1000 项。')
     await store.update(data => {
       data.inboxItems.push(...additions)
-      for (const path of selected) {
-        data.desktopAssignments[path] = zoneId
+      for (const [path, target] of targets) {
+        data.desktopAssignments[path] = target
         const inbox=data.inboxItems.find(item=>item.sourcePath===path)
-        if(inbox) inbox.zoneId=zoneId
+        if(inbox) inbox.zoneId=target
       }
-      data.desktopZones.forEach(zone => { zone.itemIds = zone.itemIds.filter(id => !selected.includes(id) && !data.inboxItems.some(entry => entry.id === id && selected.includes(entry.sourcePath || ''))) })
+      data.desktopZones.forEach(zone => { zone.itemIds = zone.itemIds.filter(id => !targets.has(id) && !data.inboxItems.some(entry => entry.id === id && targets.has(entry.sourcePath || ''))) })
     })
     const next=await refreshDesktopGroups()
     await refreshDesktopZones()
@@ -1997,7 +2020,7 @@ app.whenReady().then(async () => {
     if(health){
       Object.assign(health,healthWidgetSize)
       if(health.preferredBounds)Object.assign(health.preferredBounds,healthWidgetSize)
-      if(health.dock)health.dock=findWidgetDock(health,data.desktopModules.filter(module=>module.visible && ['quick','todos'].includes(module.id)).map(module=>({id:module.id,bounds:module}))) ?? health.dock
+      health.dock=findWidgetDock(health,data.desktopModules.filter(module=>module.visible && ['quick','todos'].includes(module.id)).map(module=>({id:module.id,bounds:{...module,height:module.collapsed?42:module.height}}))) ?? health.dock
     }
     if(skipTestDesktop) data.settings.desktopCollected=false
     if (!data.desktopModules.some(module=>module.displayId!==undefined)) {

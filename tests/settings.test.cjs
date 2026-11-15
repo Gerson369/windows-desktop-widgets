@@ -79,6 +79,17 @@ test('startup health normalization keeps saved docks for collapsed or hidden par
  context.module.exports({desktopModules:[{...parent,collapsed:false},health]})
  assert.deepEqual(health.dock,savedDock)
  assert.equal(health.width,300);assert.equal(health.height,80)
+ for(const parentId of ['quick','todos'])for(const collapsed of [false,true])for(const previousDock of [undefined,{parentId:parentId==='quick'?'todos':'quick',edge:'right',offset:0}]){
+  const target={...parent,id:parentId,kind:parentId,collapsed}
+  const health={id:'health',kind:'health',x:124,y:target.y+(collapsed?42:target.height),width:450,height:128,...(previousDock?{dock:{...previousDock}}:{})}
+  context.module.exports({desktopModules:[target,health]})
+  assert.deepEqual({...health.dock},{parentId,edge:'bottom',offset:24},`${parentId} ${collapsed?'collapsed':'expanded'} startup discovers visible attachment without a drag`)
+  const attached=context.dockedWidgetBounds(health,health.dock,{...target,height:600})
+  assert.equal(attached.x,124);assert.equal(attached.y,700)
+ }
+ const detached={id:'health',kind:'health',x:500,y:650,width:300,height:80}
+ context.module.exports({desktopModules:[parent,detached]})
+ assert.equal(detached.dock,undefined)
 })
 
 test('docked panels fit all four edges after moving or oversized resizing',()=>{

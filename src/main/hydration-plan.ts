@@ -24,6 +24,15 @@ export function validateHydrationPlan(value: unknown): HydrationPlan {
   return { enabled: plan.enabled, goalMl: plan.goalMl, cupMl: plan.cupMl, start: plan.start, end: plan.end, ...(plan.times ? { times: [...plan.times] } : {}) }
 }
 
+export function hydrationCupCapacity(plan: HydrationPlan, consumedMl: number, clock: ReminderClock | undefined): number {
+  const remainingMl = Math.max(0, plan.goalMl - consumedMl)
+  if (plan.enabled) return Math.min(plan.cupMl, remainingMl)
+  if (!clock || !Number.isFinite(clock.intervalMinutes) || clock.intervalMinutes <= 0) return 0
+  const startedAt = Math.max(clock.startedAt, boundary(plan.start, clock.startedAt))
+  const reminderCount = Math.max(1, Math.ceil((boundary(plan.end, startedAt) - startedAt) / (clock.intervalMinutes * 60000)))
+  return Math.min(2000, remainingMl, Math.max(1, Math.round(remainingMl / reminderCount)))
+}
+
 export function hydrationDayAt(value: unknown, now: number): HydrationDay {
   const date = new Date(now)
   const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`

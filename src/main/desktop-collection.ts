@@ -1,19 +1,21 @@
 import { classifyDesktopItem } from './desktop-categories'
 import type { AppData, AppSettings, CollectionSort } from './types'
 
-export const collectionTabs = [
+export const collectionCategories = [
   { id: 'apps', label: '应用', targetZone: 'desktop-apps' },
   { id: 'files', label: '文件', targetZone: 'desktop-documents' },
   { id: 'images', label: '图片', targetZone: 'desktop-images' },
   { id: 'media', label: '影音', targetZone: 'desktop-videos' }
 ] as const
+export const collectionTabs = [{ id: 'all', label: '全部' }, ...collectionCategories] as const
 export type CollectionTab = typeof collectionTabs[number]['id']
+export type CollectionCategory = typeof collectionCategories[number]['id']
 export interface CollectionProgress { busy: boolean; message: string; failed: boolean }
 
 export function normalizeCollectionRules(source: unknown): AppSettings['collectionRules'] {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {}
   const entries = Object.entries(source).map(([extension, tab]) => [extension.trim().replace(/^\./, '').toLowerCase(), tab] as const)
-  return Object.fromEntries(entries.filter(([extension, tab]) => /^[a-z0-9]{1,12}$/.test(extension) && collectionTabs.some(item => item.id === tab)).slice(0, 32)) as AppSettings['collectionRules']
+  return Object.fromEntries(entries.filter(([extension, tab]) => /^[a-z0-9]{1,12}$/.test(extension) && collectionCategories.some(item => item.id === tab)).slice(0, 32)) as AppSettings['collectionRules']
 }
 
 export function selectCollectionPaths(paths: string[], selected: Set<string>, anchor: string, target: string, mode: 'single' | 'toggle' | 'range'): Set<string> {
@@ -30,13 +32,17 @@ export function selectCollectionPaths(paths: string[], selected: Set<string>, an
   return new Set(start < 0 ? [target] : paths.slice(Math.min(start, end), Math.max(start, end) + 1))
 }
 
-export interface CollectionItem { path: string; name: string; extension: string; isDirectory: boolean; createdAt?: string; modifiedAt?: string; category?: string }
+export interface CollectionItem { path: string; name: string; extension: string; isDirectory: boolean; createdAt?: string; modifiedAt?: string; category?: string; pinned?: boolean }
+
+export function normalizeDesktopPinnedPaths(source: unknown): string[] {
+  return Array.isArray(source) ? [...new Set(source.filter((path): path is string => typeof path === 'string' && path.length > 0 && path.length <= 32767))].slice(0, 10000) : []
+}
 
 export function normalizeCollectionSorts(source: unknown): AppSettings['collectionSorts'] {
   const input = source && typeof source === 'object' && !Array.isArray(source) ? source as Record<string, unknown> : {}
   return Object.fromEntries(collectionTabs.map(tab => {
     const value = input[tab.id] as Partial<CollectionSort> | undefined
-    return [tab.id, { by: tab.id==='apps' && value?.by==='type' ? 'name' : value && ['name','type','createdAt','modifiedAt'].includes(value.by || '') ? value.by! : tab.id === 'apps' ? 'name' : 'type', direction: value?.direction === 'desc' ? 'desc' : 'asc' }]
+    return [tab.id, { by: tab.id==='apps' && value?.by==='type' ? 'name' : value && ['name','type','createdAt','modifiedAt'].includes(value.by || '') ? value.by! : ['all','apps'].includes(tab.id) ? 'name' : 'type', direction: value?.direction === 'desc' ? 'desc' : 'asc' }]
   })) as AppSettings['collectionSorts']
 }
 
@@ -44,6 +50,7 @@ export function sortCollectionItems<T extends CollectionItem>(items: T[], sort: 
   const compare = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' }).compare
   const direction = sort.direction === 'desc' ? -1 : 1
   return [...items].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
     if (sort.by === 'createdAt' || sort.by === 'modifiedAt') {
       const left = Date.parse(a[sort.by] || ''), right = Date.parse(b[sort.by] || '')
       if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1
@@ -56,20 +63,21 @@ export function sortCollectionItems<T extends CollectionItem>(items: T[], sort: 
 }
 
 export function collectionItems(data: AppData, tab: CollectionTab): CollectionItem[] {
-  const tabForZone = (id: string): CollectionTab => {
+  const tabForZone = (id: string): CollectionCategory => {
     if (['desktop-apps', 'desktop-system'].includes(id)) return 'apps'
     if (id === 'desktop-images') return 'images'
     if (['desktop-videos', 'desktop-audio'].includes(id)) return 'media'
     return 'files'
   }
+  const pinned = new Set(data.desktopPinnedPaths)
   const items = new Map<string, CollectionItem>()
-  for (const zone of data.desktopZones.filter(zone => zone.id.startsWith('desktop-') && zone.visible && tabForZone(zone.id) === tab)) {
+  for (const zone of data.desktopZones.filter(zone => zone.id.startsWith('desktop-') && zone.visible && (tab === 'all' || tabForZone(zone.id) === tab))) {
     for (const id of zone.itemIds) {
       const inbox = data.inboxItems.find(item => item.id === id)
       const path = inbox?.sourcePath || id
       const item = data.desktopItems.find(item => item.path === path)
       if (item || inbox?.sourcePath) items.set(path, {
-        path, name: (inbox?.name || item?.name || path).replace(/\.(lnk|url)$/i, ''),
+        path, pinned: pinned.has(path), name: (inbox?.name || item?.name || path).replace(/\.(lnk|url)$/i, ''),
         extension: item?.extension || path.split(/[\\/]/).pop()?.match(/\.([^.]+)$/)?.[1]?.toLowerCase() || '',
         isDirectory: item?.isDirectory || inbox?.isDirectory || false, createdAt:item?.createdAt || inbox?.createdAt, modifiedAt:item?.modifiedAt || inbox?.modifiedAt, category:item?.category || classifyDesktopItem(inbox?.name || path,inbox?.isDirectory===true)
       })

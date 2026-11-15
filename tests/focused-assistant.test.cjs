@@ -6,7 +6,7 @@ const path = require('node:path')
 const {loadTypeScript}=require('./load-typescript.cjs')
 const { createCategoryLayoutPlan, decodeNativeOutput } = loadTypeScript('src/main/desktop-layout.ts')
 const { normalizeReminderSettings, tickReminders, resumeReminderClocks } = loadTypeScript('src/main/wellness-reminders.ts')
-const { defaultHydrationPlan, validateHydrationPlan, hydrationTimes, hydrationDayAt, hydrationPlanClock, hydrationPlanSnapshot, recordHydration } = loadTypeScript('src/main/hydration-plan.ts')
+const { defaultHydrationPlan, validateHydrationPlan, hydrationTimes, hydrationDayAt, hydrationPlanClock, hydrationPlanSnapshot, hydrationCupCapacity, recordHydration } = loadTypeScript('src/main/hydration-plan.ts')
 test('daily water plan retains legacy schedules without coupling them to new reminder timing', () => {
   const plan = validateHydrationPlan({...defaultHydrationPlan,enabled:true})
   assert.equal(hydrationTimes(plan).length,8)
@@ -15,6 +15,40 @@ test('daily water plan retains legacy schedules without coupling them to new rem
   assert.deepEqual(validateHydrationPlan({...plan,times:['09:30']}).times,['09:30'])
   assert.equal(validateHydrationPlan({...plan,start:'19:50'}).start,'19:50')
   for(const patch of [{goalMl:0},{cupMl:NaN},{end:'08:00'},{times:['25:00']},{times:Array(101).fill('10:00')}]) assert.throws(()=>validateHydrationPlan({...plan,...patch}))
+})
+
+test('fixed water portions divide remaining water over reminders from the current clock start to the configured end', () => {
+  const at = (hour, minute = 0) => new Date(2026, 10, 15, hour, minute).getTime()
+  const plan = { ...defaultHydrationPlan, enabled: false }
+  const clock = { startedAt: at(11), dueAt: at(11, 15), intervalMinutes: 15 }
+  assert.equal(hydrationCupCapacity(plan, 0, clock), 56)
+  assert.equal(hydrationCupCapacity(plan, 500, clock), 42)
+  assert.equal(hydrationCupCapacity(plan, 56, { ...clock, startedAt: at(11, 15), dueAt: at(11, 30) }), 56)
+  assert.equal(hydrationCupCapacity(plan, 0, { ...clock, startedAt: at(8) }), 45)
+  assert.equal(hydrationCupCapacity(plan, 0, { ...clock, intervalMinutes: 30 }), 111)
+  assert.equal(hydrationCupCapacity({ ...plan, end: '20:01' }, 0, clock), 54)
+  assert.equal(hydrationCupCapacity(plan, 1999, clock), 1)
+  assert.equal(hydrationCupCapacity(plan, 2000, clock), 0)
+  assert.equal(hydrationCupCapacity(plan, 2100, clock), 0)
+  assert.equal(hydrationCupCapacity(plan, 0, undefined), 0)
+  assert.equal(hydrationCupCapacity(plan, 0, { ...clock, intervalMinutes: 0 }), 0)
+  assert.equal(hydrationCupCapacity({ ...plan, goalMl: 5000 }, 0, { ...clock, startedAt: at(20) }), 2000)
+  assert.equal(hydrationCupCapacity({ ...plan, enabled: true }, 0, clock), 250)
+  assert.equal(hydrationCupCapacity({ ...plan, enabled: true }, 1900, clock), 100)
+})
+
+test('rounding and partial drinks leave a reachable daily target without forcing the last cup over the remainder', () => {
+  const plan = { ...defaultHydrationPlan, enabled: false }
+  const startedAt = new Date(2026, 10, 15, 11).getTime()
+  const initialClock = { startedAt, dueAt: startedAt + 15 * 60000, intervalMinutes: 15 }
+  assert.equal(hydrationCupMl(hydrationCupCapacity(plan, 0, initialClock), 0.5), 28)
+  assert.equal(hydrationCupCapacity(plan, 28, { ...initialClock, startedAt: startedAt + 7.5 * 60000 }), 55)
+  let consumedMl = 0
+  for (let index = 0; index < 36; index++) {
+    const clock = { startedAt: startedAt + index * 15 * 60000, dueAt: startedAt + (index + 1) * 15 * 60000, intervalMinutes: 15 }
+    consumedMl += hydrationCupCapacity(plan, consumedMl, clock)
+  }
+  assert.equal(consumedMl, 2000)
 })
 test('daily water clock divides remaining time and cups, retains running clocks and stops at day end or goal', () => {
   const at=(h,m=0)=>new Date(2026,9,19,h,m).getTime()
@@ -397,10 +431,12 @@ test('collection frame and independent todo retain every category without duplic
   assert.equal(data.settings.desktopWidgetVersion, 5)
   assert.equal(data.settings.desktopSnapDistance, 10)
   assert.equal(data.todos[0].title, 'Existing todo')
-  const paths = collectionTabs.flatMap(tab => collectionItems(data, tab.id).map(item => item.path))
+  const paths = collectionTabs.filter(tab => tab.id !== 'all').flatMap(tab => collectionItems(data, tab.id).map(item => item.path))
   assert.equal(paths.length, items.length)
   assert.equal(new Set(paths).size, items.length)
   assert.equal(collectionItems(data, 'media').length, 2)
+  assert.equal(collectionTabs[0].id, 'all')
+  assert.deepEqual(collectionItems(data, 'all').map(item => item.path).sort(), [...paths].sort())
   const quick = data.desktopModules.find(module => module.kind === 'quick')
   quick.x = 100; quick.collapsed = true
   synchronizeDesktopGroups(data, items, { x: 0, y: 0, width: 1280, height: 720 }, '2026-10-19T00:00:00Z')
@@ -433,6 +469,103 @@ test('alphabetical and type sorting are deterministic, reversible and never muta
   assert.deepEqual(items, source)
   assert.deepEqual(normalizeCollectionSorts({ apps:{ by:'type', direction:'desc' }, files:{ by:'bad', direction:'bad' } }).apps, { by:'name', direction:'desc' })
   assert.deepEqual(normalizeCollectionSorts(null).files, { by:'type', direction:'asc' })
+  assert.deepEqual(normalizeCollectionSorts(null).all, { by:'name', direction:'asc' })
+})
+
+test('pinned items stay ahead of every sort direction in all and category views, including after a rename', () => {
+  const data = defaultData()
+  const items = [
+    { path:'C:/Desktop/Alpha.lnk', name:'Alpha.lnk', category:'shortcut', extension:'lnk', identity:'app', modifiedAt:'2026-10-20T00:00:00Z' },
+    { path:'C:/Desktop/Zeta.lnk', name:'Zeta.lnk', category:'shortcut', extension:'lnk', identity:'pinned-app', modifiedAt:'2026-10-19T00:00:00Z' },
+    { path:'C:/Desktop/Beta.png', name:'Beta.png', category:'image', extension:'png', identity:'picture' }
+  ]
+  data.desktopPinnedPaths = [items[1].path, items[2].path]
+  synchronizeDesktopGroups(data, items, { x:0, y:0, width:1280, height:720 }, '2026-10-19T00:00:00Z')
+  const before = structuredClone(data)
+  for (const tab of ['all','apps','images']) for (const by of ['name','type','createdAt','modifiedAt']) for (const direction of ['asc','desc']) {
+    const sorted = sortCollectionItems(collectionItems(data, tab), { by, direction })
+    const firstUnpinned = sorted.findIndex(item => !item.pinned)
+    if (firstUnpinned >= 0) assert.ok(sorted.slice(firstUnpinned).every(item => !item.pinned))
+  }
+  assert.deepEqual(sortCollectionItems(collectionItems(data, 'apps'), {by:'name',direction:'asc'}).map(item => item.name), ['Zeta','Alpha'])
+  assert.deepEqual(data, before)
+  synchronizeDesktopGroups(data, items.map(item => item.identity === 'pinned-app' ? {...item, path:'C:/Desktop/Renamed.lnk', name:'Renamed.lnk'} : item), { x:0, y:0, width:1280, height:720 }, '2026-10-20T00:00:00Z')
+  assert.deepEqual(data.desktopPinnedPaths, ['C:/Desktop/Renamed.lnk', 'C:/Desktop/Beta.png'])
+  assert.equal(collectionItems(data,'apps').find(item => item.name === 'Renamed').pinned, true)
+})
+
+test('pinned paths survive restart and imported invalid entries are ignored without creating a classification rule for all', async t => {
+  const {normalizeDesktopPinnedPaths,normalizeCollectionRules}=loadTypeScript('src/main/desktop-collection.ts')
+  assert.deepEqual(normalizeDesktopPinnedPaths(['one','one',null,42,'','x'.repeat(32768),'two']), ['one','two'])
+  assert.deepEqual(normalizeDesktopPinnedPaths({one:true}), [])
+  assert.deepEqual(normalizeCollectionRules({txt:'all',png:'images'}), {png:'images'})
+  const os=require('node:os'),promises=require('node:fs/promises')
+  const directory=await promises.mkdtemp(path.join(os.tmpdir(),'gerson-pinned-paths-'))
+  t.after(async()=>{assert.equal(path.dirname(directory),path.resolve(os.tmpdir()));await promises.rm(directory,{recursive:true,force:true})})
+  const {DataStore}=loadTypeScript('src/main/store.ts',{electron:{app:{getPath:()=>directory}}})
+  const store=new DataStore();await store.init(directory)
+  await store.update(data=>{data.desktopPinnedPaths=['C:/Desktop/Daily.lnk','C:/Desktop/Image.png']})
+  const restarted=new DataStore();await restarted.init(directory)
+  assert.deepEqual(restarted.data.desktopPinnedPaths,store.data.desktopPinnedPaths)
+  await restarted.replace({...restarted.data,desktopPinnedPaths:['one','one',5],settings:{...restarted.data.settings,collectionSorts:{apps:{by:'name',direction:'asc'}}}})
+  assert.deepEqual(restarted.data.desktopPinnedPaths,['one'])
+  assert.deepEqual(restarted.data.settings.collectionSorts.all,{by:'name',direction:'asc'})
+})
+
+test('collection starts in all, pins through its menu, preserves file opening and permits retry after save failure', async () => {
+  const vue=require('vue'),ts=require('typescript'),vm=require('node:vm')
+  const {parse,compileScript}=require('@vue/compiler-sfc'),{renderToString}=require('vue/server-renderer')
+  const {descriptor}=parse(fs.readFileSync('src/renderer/components/DesktopCollection.vue','utf8'))
+  const script=compileScript(descriptor,{id:'collection-menu-test'})
+  const compiled=ts.transpileModule(script.content,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
+  const fixture=defaultData(),calls=[],opened=[],body={scrollTop:120}
+  const app={path:'C:/Desktop/Zeta.lnk',name:'Zeta.lnk',category:'shortcut',extension:'lnk',isDirectory:false}
+  const image={path:'C:/Desktop/Alpha.png',name:'Alpha.png',category:'image',extension:'png',isDirectory:false}
+  synchronizeDesktopGroups(fixture,[app,image],{x:0,y:0,width:1280,height:720},'2026-10-20T00:00:00Z')
+  let failNext=false,persisted=structuredClone(fixture)
+  const toolbox={desktop:{setPinned:async (path,pinned)=>{
+    calls.push({path,pinned})
+    if(failNext){failNext=false;throw Error('disk full')}
+    const next=structuredClone(persisted)
+    next.desktopPinnedPaths=next.desktopPinnedPaths.filter(candidate=>candidate!==path)
+    if(pinned)next.desktopPinnedPaths.push(path)
+    persisted=next
+    return next
+  }},files:{open:async path=>{opened.push(path);return ''}}}
+  const context={exports:{},Error,Set,document:{querySelector:()=>body},require:id=>{
+    if(id==='vue')return vue
+    if(id==='../toolbox')return {toolbox}
+    if(id.endsWith('.vue'))return {}
+    if(id==='../useDesktopDrag')return {useDesktopDrag:()=>({active:false})}
+    if(id==='../useWidgetHover')return {useWidgetHover:()=>({expanded:vue.ref(false)})}
+    if(id==='../../main/desktop-collection')return loadTypeScript('src/main/desktop-collection.ts')
+    if(id==='../../main/desktop-widgets')return loadTypeScript('src/main/desktop-widgets.ts')
+    throw Error('Unexpected dependency: '+id)
+  }}
+  vm.runInNewContext(compiled,context)
+  const component=context.exports.default
+  let state
+  await renderToString(vue.createSSRApp({props:component.props,setup(props,setupContext){state=component.setup(props,setupContext);return()=>null}}))
+  state.data.value=persisted
+  assert.equal(state.activeTab.value,'all')
+  assert.deepEqual(Array.from(state.visibleItems.value,item=>item.path),[image.path,app.path])
+  const menuForApp=()=>{state.fileMenu.value={item:state.visibleItems.value.find(item=>item.path===app.path),x:0,y:0}}
+  menuForApp();await state.chooseFileAction('pin')
+  assert.deepEqual(calls,[{path:app.path,pinned:true}])
+  assert.equal(state.visibleItems.value[0].path,app.path)
+  assert.equal(body.scrollTop,0)
+  assert.equal(state.messageFailed.value,false)
+  menuForApp();await state.chooseFileAction('open')
+  assert.deepEqual(opened,[app.path])
+  failNext=true;menuForApp();await state.chooseFileAction('pin')
+  assert.equal(state.visibleItems.value[0].pinned,true)
+  assert.equal(state.messageFailed.value,true)
+  assert.match(state.message.value,/disk full/)
+  assert.equal(state.busy.value,false)
+  menuForApp();await state.chooseFileAction('pin')
+  assert.equal(state.visibleItems.value[0].path,image.path)
+  assert.equal(state.messageFailed.value,false)
+  assert.deepEqual(persisted.desktopPinnedPaths,[])
 })
 
 const { respondToReminder, reminderVisual, reminderPercent, hydrationReminderVisual, hydrationCupMl } = loadTypeScript('src/main/wellness-reminders.ts')

@@ -22,7 +22,7 @@ export function captureWellnessUndo(id: string, kind: ReminderKind, settings: Ap
     clock: clock ? { ...clock } : undefined,
     dayBefore: kind === 'hydration' ? structuredClone(hydrationDayAt(day, now)) : undefined }
 }
-export function validateWellnessUndo(record: WellnessUndo | null, id: unknown, settings: AppSettings, day: HydrationDay, now: number): asserts record is WellnessUndo {
+export function validateWellnessUndo(record: WellnessUndo | null | undefined, id: unknown, settings: AppSettings, day: HydrationDay, now: number): asserts record is WellnessUndo {
   if (!record || typeof id !== 'string' || record.id !== id || now >= record.expiresAt) throw new Error('这次操作已无法撤销，请在完成后 15 秒内撤销最近一次操作。')
   if (record.date !== hydrationDayAt(day, now).date || record.signature !== settingsKey(settings, record.kind)) throw new Error('日期或提醒设置已改变，无法撤销旧操作。')
   if (record.dayAfter && JSON.stringify(hydrationDayAt(day, now)) !== JSON.stringify(record.dayAfter)) throw new Error('喝水记录已经改变，无法覆盖较新的记录。')

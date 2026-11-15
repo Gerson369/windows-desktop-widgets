@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path'
 import { app } from 'electron'
 import { AppData, defaultData } from './types'
 import { normalizeReminderSettings } from './wellness-reminders'
-import { normalizeCollectionSorts, normalizeCollectionRules } from './desktop-collection'
+import { normalizeCollectionSorts, normalizeCollectionRules, normalizeDesktopPinnedPaths } from './desktop-collection'
 import { validWidgetLayout } from './widget-layout'
 import { healthWidgetSize } from './desktop-panels'
 
@@ -63,6 +63,7 @@ export class DataStore {
     try { data.settings.hydrationPlan = validateHydrationPlan(rawSettings.hydrationPlan) }
     catch { data.settings.hydrationPlan = structuredClone(defaults.settings.hydrationPlan) }
     data.desktopItems = []
+    data.desktopPinnedPaths = normalizeDesktopPinnedPaths(incoming.desktopPinnedPaths)
     data.desktopAssignments = isRecord(incoming.desktopAssignments) ? Object.fromEntries(Object.entries(incoming.desktopAssignments).filter(([path, id]) => path.length <= 32767 && typeof id === 'string' && id.length <= 160).slice(0, 10000)) as Record<string, string> : {}
     data.settings.desktopCollected = typeof rawSettings.desktopCollected === 'boolean' ? rawSettings.desktopCollected : defaults.settings.desktopCollected
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { AppData, AppSettings } from '../../main/types'
-import { defaultHydrationPlan, validateHydrationPlan, hydrationDayAt, type HydrationPlan } from '../../main/hydration-plan'
+import type { WellnessSnapshot } from '../../main/wellness-reminders'
+import { defaultHydrationPlan, validateHydrationPlan, hydrationDayAt, hydrationCupCapacity, type HydrationPlan } from '../../main/hydration-plan'
 import { toolbox } from '../toolbox'
 import { createSaveQueue } from '../save-queue'
 
@@ -22,6 +23,8 @@ const sedentaryIntervals = [30, 45, 60, 90]
 const customSedentary = ref(false)
 const showCustomSedentary = computed(() => customSedentary.value || !sedentaryIntervals.includes(props.data.settings.sedentaryIntervalMinutes))
 const saveQueue = createSaveQueue()
+const snapshot = ref<WellnessSnapshot>()
+let disposeState: (() => void) | undefined
 let planRevision = 0
 let settingRevision = 0
 
@@ -33,6 +36,12 @@ watch(() => props.data.settings.hydrationPlan, plan => {
 const today = computed(() => hydrationDayAt(props.data.hydrationDay, Date.now()).consumedMl)
 const summaryPlan = computed(() => props.data.settings.hydrationPlan)
 const progress = computed(() => Math.min(100, Math.round(today.value / summaryPlan.value.goalMl * 100)))
+const servingMl = computed(() => hydrationCupCapacity(summaryPlan.value, today.value, snapshot.value?.state.hydration))
+onMounted(async () => {
+  disposeState = toolbox.wellness.onChanged(state => { snapshot.value = state })
+  try { snapshot.value = await toolbox.wellness.get() } catch { /* The next state event retries the display. */ }
+})
+onBeforeUnmount(() => { disposeState?.() })
 
 function reportStatus() {
   const error = planFailed.value ? planMessage.value : failedSetting.value ? settingMessage.value : resetFailed.value ? resetMessage.value : ''
@@ -156,7 +165,7 @@ function blur(event: KeyboardEvent) {
           <input id="hydration-goal" :value="draft.goalMl" type="number" list="hydration-goal-options" min="500" max="5000" step="100" aria-describedby="hydration-recording-hint" @change="setNumber('goalMl', $event)" @keydown.enter.prevent="blur"/>
           <datalist id="hydration-goal-options" aria-label="每日目标快捷选择"><option v-for="ml in [1000, 2000, 3000]" :key="ml" :value="ml" :label="`${ml / 1000} L`"/></datalist>
         </div>
-        <div class="settings-field">
+        <div v-if="draft.enabled" class="settings-field">
           <label for="hydration-cup">水杯容量 <span>ml</span></label>
           <input id="hydration-cup" :value="draft.cupMl" type="number" list="hydration-cup-options" min="50" max="1000" aria-describedby="hydration-recording-hint" @change="setNumber('cupMl', $event)" @keydown.enter.prevent="blur"/>
           <datalist id="hydration-cup-options" aria-label="水杯容量快捷选择"><option v-for="ml in [200, 250, 300, 500]" :key="ml" :value="ml" :label="`${ml} ml`"/></datalist>
@@ -167,16 +176,15 @@ function blur(event: KeyboardEvent) {
         <button :aria-pressed="draft.enabled" @click="setPlan({ enabled: true })">每日计划</button>
         <button :aria-pressed="!draft.enabled" @click="setPlan({ enabled: false })">固定间隔</button>
       </div>
-      <template v-if="draft.enabled">
-        <div class="health-field-grid">
+      <div class="health-field-grid">
           <div class="settings-field"><label for="hydration-start">开始时间</label><input id="hydration-start" :value="draft.start" type="time" @change="setPlan({ start: ($event.target as HTMLInputElement).value })" @keydown.enter.prevent="blur"/></div>
           <div class="settings-field"><label for="hydration-end">结束时间</label><input id="hydration-end" :value="draft.end" type="time" @change="setPlan({ end: ($event.target as HTMLInputElement).value })" @keydown.enter.prevent="blur"/></div>
-        </div>
-        <p class="settings-hint redistribute-hint">每次记录后，按剩余水量与剩余时段自动均分提醒。</p>
-      </template>
+      </div>
+      <p v-if="draft.enabled" class="settings-hint redistribute-hint">每次记录后，按剩余水量与剩余时段自动均分提醒。</p>
       <template v-else>
         <div class="health-presets" aria-label="喝水间隔快捷选择"><button v-for="minutes in [15, 30, 45, 60]" :key="minutes" :aria-pressed="data.settings.hydrationIntervalMinutes === minutes" :disabled="settingsSaving" @click="saveSettings({ hydrationIntervalMinutes: minutes })">{{ minutes }} 分钟</button></div>
         <label class="settings-row interval-field">自定义间隔 <span><input :value="data.settings.hydrationIntervalMinutes" type="number" min="5" max="240" aria-label="喝水间隔分钟" :disabled="settingsSaving" @change="setInterval('hydrationIntervalMinutes', $event)" @keydown.enter.prevent="blur"/> 分钟</span></label>
+        <p class="settings-hint hydration-serving-hint">每 {{ data.settings.hydrationIntervalMinutes }} 分钟提醒<span v-if="snapshot">，本轮每次约 {{ servingMl }} ml</span>。从实际开始计时到 {{ summaryPlan.end }}，按剩余水量和剩余次数自动均分；每次最多 2000 ml，临近结束不强制补足。</p>
       </template>
     </section>
 

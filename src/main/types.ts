@@ -276,7 +276,7 @@ export interface BatchRenamePlan {
 export interface CollectionSort { by: 'name' | 'type' | 'createdAt' | 'modifiedAt'; direction: 'asc' | 'desc' }
 export interface AppSettings {
   collectionRules: Record<string, 'apps' | 'files' | 'images' | 'media'>
-  collectionSorts: Record<'apps' | 'files' | 'images' | 'media', CollectionSort>
+  collectionSorts: Record<'all' | 'apps' | 'files' | 'images' | 'media', CollectionSort>
   theme: ThemeMode
   fontSize: number
   panelColor: string
@@ -331,6 +331,7 @@ export interface AppData {
   desktopModules: DesktopModule[]
   desktopItems: DesktopScanItem[]
   desktopAssignments: Record<string, string>
+  desktopPinnedPaths: string[]
   widgetLayouts: WidgetLayoutBackup[]
   desktopZones: DesktopZone[]
   inboxItems: InboxItem[]
@@ -341,7 +342,7 @@ export interface AppData {
 
 export const defaultSettings: AppSettings = {
   collectionRules: {},
-  collectionSorts: { apps: { by: 'name', direction: 'asc' }, files: { by: 'type', direction: 'asc' }, images: { by: 'type', direction: 'asc' }, media: { by: 'type', direction: 'asc' } },
+  collectionSorts: { all: { by: 'name', direction: 'asc' }, apps: { by: 'name', direction: 'asc' }, files: { by: 'type', direction: 'asc' }, images: { by: 'type', direction: 'asc' }, media: { by: 'type', direction: 'asc' } },
   theme: 'dark',
   fontSize: 14,
   panelColor: '#1d2a44',
@@ -404,6 +405,7 @@ export const defaultData = (): AppData => ({
   ],
   desktopItems: [],
   desktopAssignments: {},
+  desktopPinnedPaths: [],
   widgetLayouts: [],
   desktopZones: [],
   inboxItems: [],

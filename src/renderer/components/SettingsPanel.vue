@@ -2,7 +2,7 @@
 import { onMounted, onBeforeUnmount, computed, reactive, ref, watch, nextTick } from 'vue'
 import { toolbox } from '../toolbox'
 import { createSaveQueue } from '../save-queue'
-import { collectionTabs, type CollectionTab } from '../../main/desktop-collection'
+import { collectionCategories, type CollectionCategory } from '../../main/desktop-collection'
 import type { AppData, AppSettings } from '../../main/types'
 import SuiteSettings from './SuiteSettings.vue'
 import HydrationPlanSettings from './HydrationPlanSettings.vue'
@@ -31,7 +31,7 @@ const settingsBody = ref<HTMLElement | null>(null)
 const busy = ref(false), showAllBackups = ref(false), showAllIcons = ref(false)
 const saveQueue = createSaveQueue()
 const retry = ref<(() => Promise<void>) | null>(null)
-const ruleExtensions = ref(''), ruleTab = ref<CollectionTab>('files')
+const ruleExtensions = ref(''), ruleTab = ref<CollectionCategory>('files')
 const sections = [{ id: 'health', label: '健康' }, { id: 'appearance', label: '外观' }, { id: 'desktop', label: '桌面' }]
 const desktopTabs = [{ id: 'components', label: '组件' }, { id: 'organizer', label: '收纳' }, { id: 'backups', label: '备份' }, { id: 'data', label: '数据' }]
 let dispose: (() => void) | undefined
@@ -122,10 +122,10 @@ onBeforeUnmount(() => dispose?.())
             <p class="settings-hint">仅改变收纳框中的展示分类，不移动文件。手动分类优先，最多 32 条。</p>
             <form class="collection-rule-editor" @submit.prevent="perform(saveCollectionRule)">
               <label class="settings-field">文件扩展名<input v-model="ruleExtensions" maxlength="160" placeholder="例如 pdf、psd" aria-label="规则扩展名"/></label>
-              <label class="settings-field">目标页签<select v-model="ruleTab" aria-label="规则目标分类"><option v-for="tab in collectionTabs" :key="tab.id" :value="tab.id">{{ tab.label }}</option></select></label>
+              <label class="settings-field">目标页签<select v-model="ruleTab" aria-label="规则目标分类"><option v-for="tab in collectionCategories" :key="tab.id" :value="tab.id">{{ tab.label }}</option></select></label>
               <button :disabled="busy || !ruleExtensions.trim()">保存规则</button>
             </form>
-            <div v-for="(target, extension) in data.settings.collectionRules" :key="extension" class="settings-row"><span>.{{ extension }} → {{ collectionTabs.find(tab => tab.id === target)?.label }}</span><button class="settings-link" :disabled="busy" @click="perform(() => removeCollectionRule(String(extension)))">移除</button></div>
+            <div v-for="(target, extension) in data.settings.collectionRules" :key="extension" class="settings-row"><span>.{{ extension }} → {{ collectionCategories.find(tab => tab.id === target)?.label }}</span><button class="settings-link" :disabled="busy" @click="perform(() => removeCollectionRule(String(extension)))">移除</button></div>
           </details>
         </div>
         <div v-show="desktopTab === 'backups'">

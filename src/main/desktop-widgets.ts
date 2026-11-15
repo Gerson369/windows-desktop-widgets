@@ -1,4 +1,4 @@
-import type { AppData, DesktopFileCategory, DesktopScanItem } from './types'
+import type { AppData, AppSettings, DesktopFileCategory, DesktopScanItem } from './types'
 
 const groups: Array<{ id: string; name: string; categories: DesktopFileCategory[] }> = [
   { id: 'desktop-apps', name: '应用与快捷方式', categories: ['shortcut'] },
@@ -46,11 +46,18 @@ export function placeStartupWidgets(data: AppData, area: { x: number; y: number;
   }
 }
 
+export function desktopItemTargetZone(item: Pick<DesktopScanItem, 'isDirectory' | 'extension' | 'category'>, rules: AppSettings['collectionRules']): string | undefined {
+  const rule = !item.isDirectory && Object.hasOwn(rules, item.extension) ? rules[item.extension] : undefined
+  const category = rule ? ({apps:'shortcut',files:'document',images:'image',media:'video'} as const)[rule] : item.category
+  return groups.find(group => group.categories.includes(category))?.id
+}
+
 /** Updates classification only; the native desktop lease controls original icon visibility. */
 export function synchronizeDesktopGroups(data: AppData, items: DesktopScanItem[], area: { x: number; y: number; width: number; height: number }, createdAt: string): void {
   for (const [before, after] of renamedDesktopPaths(data.desktopItems, items)) {
     if (data.desktopAssignments[before] && !data.desktopAssignments[after]) data.desktopAssignments[after] = data.desktopAssignments[before]
     delete data.desktopAssignments[before]
+    data.desktopPinnedPaths = [...new Set(data.desktopPinnedPaths.map(path => path === before ? after : path))]
     for (const zone of data.desktopZones) zone.itemIds = zone.itemIds.map(id => id === before ? after : id)
   }
   const firstRun = data.settings.desktopWidgetVersion < 3
@@ -60,9 +67,7 @@ export function synchronizeDesktopGroups(data: AppData, items: DesktopScanItem[]
     const assigned = data.desktopAssignments[item.path]
     if (assigned && data.desktopZones.some(zone => zone.id === assigned)) return assigned
     const custom = data.desktopZones.find(zone => !managedIds.has(zone.id) && zone.itemIds.some(id => id === item.path || data.inboxItems.some(entry => entry.id === id && entry.sourcePath === item.path)))
-    const rule = !item.isDirectory && Object.hasOwn(data.settings.collectionRules, item.extension) ? data.settings.collectionRules[item.extension] : undefined
-    const category = rule ? ({apps:'shortcut',files:'document',images:'image',media:'video'} as const)[rule] : item.category
-    return custom?.id || groups.find(group => group.categories.includes(category))?.id
+    return custom?.id || desktopItemTargetZone(item, data.settings.collectionRules)
   }
   for (const group of groups) {
     let zone = data.desktopZones.find(zone => zone.id === group.id)

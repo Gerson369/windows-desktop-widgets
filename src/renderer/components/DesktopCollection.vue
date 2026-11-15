@@ -7,7 +7,7 @@ import AssistantIcon from './AssistantIcon.vue'
 import { useDesktopDrag } from '../useDesktopDrag'
 import { useWidgetHover } from '../useWidgetHover'
 const titleDrag=useDesktopDrag()
-import { collectionItems, collectionTabs, sortCollectionItems, normalizeCollectionSorts, selectCollectionPaths, type CollectionTab, type CollectionItem } from '../../main/desktop-collection'
+import { collectionItems, collectionTabs, collectionCategories, sortCollectionItems, normalizeCollectionSorts, selectCollectionPaths, type CollectionTab, type CollectionCategory, type CollectionItem } from '../../main/desktop-collection'
 import { renamedDesktopPaths } from '../../main/desktop-widgets'
 import type { AppData } from '../../main/types'
 
@@ -17,7 +17,7 @@ const typeFilter=ref('all')
 const data = ref<AppData | null>(null)
 const activeProject = ref('')
 const projects = computed(() => data.value?.desktopZones.filter(zone => zone.visible && !zone.id.startsWith('desktop-')) || [])
-const activeTab = ref<CollectionTab>('apps')
+const activeTab = ref<CollectionTab>('all')
 const selectedPath = ref('')
 const selectedPaths = ref(new Set<string>())
 const selectionAnchor = ref('')
@@ -67,8 +67,8 @@ async function changeSort(event: Event) {
   if (data.value) data.value = await api.settings.update({ collectionSorts: normalizeCollectionSorts({ ...data.value.settings.collectionSorts, [activeTab.value]: { by, direction } }) })
 }
 async function classifySelection(event: Event) {
-  const id = (event.target as HTMLSelectElement).value as CollectionTab
-  const tab = collectionTabs.find(tab => tab.id === id)
+  const id = (event.target as HTMLSelectElement).value as CollectionCategory
+  const tab = collectionCategories.find(tab => tab.id === id)
   if (!tab) return
   data.value = await api.organizer.assignDesktopItems([...selectedPaths.value], tab.targetZone)
   selectTab(id)
@@ -134,7 +134,7 @@ function keydown(event: KeyboardEvent) {
 async function contextMenu(event: MouseEvent, item: CollectionItem) {
   if (!selectedPaths.value.has(item.path)) selectItem(item)
   selectedPath.value = item.path
-  fileMenu.value = { item, x: Math.max(8,Math.min(event.clientX,window.innerWidth-176)), y: Math.max(8,Math.min(event.clientY,window.innerHeight-148)) }
+  fileMenu.value = { item, x: Math.max(8,Math.min(event.clientX,window.innerWidth-176)), y: Math.max(8,Math.min(event.clientY,window.innerHeight-180)) }
   await nextTick()
   document.querySelector<HTMLButtonElement>('.file-context-menu button')?.focus()
 }
@@ -147,6 +147,13 @@ async function chooseFileAction(action: string) {
     if (action === 'open') await perform(() => openFile(item.path))
     if (action === 'reveal') await perform(() => api.files.reveal(item.path))
     if (action === 'trash') await trashSelected()
+    if (action === 'pin') await perform(async () => {
+      data.value = await api.desktop.setPinned(item.path, !item.pinned)
+      message.value = item.pinned ? '已取消置顶' : '已置顶，显示在当前分类最前面'
+      await nextTick()
+      const body = document.querySelector('.collection-body')
+      if (body) body.scrollTop = 0
+    })
   } catch (error) { message.value = error instanceof Error ? error.message : '操作未完成' }
 }
 function menuKeydown(event: KeyboardEvent) {
@@ -193,9 +200,9 @@ async function drop(event: DragEvent, id: CollectionTab) {
     const single = event.dataTransfer?.getData('application/x-gerson-desktop-item')
     const paths = batch ? JSON.parse(batch) : single ? [single] : [...(event.dataTransfer?.files || [])].map(file => api.files.pathForDroppedFile(file))
     if (!paths.length) return
-    data.value = await api.organizer.assignDesktopItems(paths, collectionTabs.find(tab => tab.id === id)!.targetZone)
+    data.value = await api.organizer.assignDesktopItems(paths, id === 'all' ? 'all' : collectionCategories.find(tab => tab.id === id)!.targetZone)
     selectTab(id)
-    message.value=`已归入${collectionTabs.find(tab=>tab.id===id)!.label}，原文件位置不变${search.value?'；当前搜索条件仍保留':''}`
+    message.value=`${id === 'all' ? '已收纳并自动分类' : `已归入${collectionTabs.find(tab=>tab.id===id)!.label}`}，原文件位置不变${search.value?'；当前搜索条件仍保留':''}`
   })
 }
 function closeMenu(event: PointerEvent) {
@@ -234,7 +241,7 @@ onBeforeUnmount(() => { disposeProgress?.();disposeData?.(); document.removeEven
 <template>
   <main class="desktop-collection" :data-inventory-ready="Boolean(data)" :style="{ '--collection-alpha': alpha }" @mouseenter="hover.enter" @mouseleave="hover.leave" @keydown="keydown" @keydown.esc="fileMenu = null">
     <header class="module-header collection-header" @pointerdown="!props.embedded && titleDrag.start($event)" @pointermove="titleDrag.move" @pointerup="titleDrag.finish" @pointercancel="titleDrag.finish" @lostpointercapture="titleDrag.finish">
-      <AssistantIcon name="layout"/><b>桌面收纳</b><span class="total-count">{{ data?.desktopItems.length || 0 }}</span>
+      <AssistantIcon name="layout"/><b>桌面收纳</b><span class="total-count">{{ tabs.find(tab => tab.id === 'all')?.items.length || 0 }}</span>
       <button class="collect-button header-action" :disabled="busy || progress.busy" :aria-label="data?.settings.desktopCollected ? '重新整理' : '收纳桌面'" :title="busy ? '正在整理…' : data?.settings.desktopCollected ? '重新整理' : '收纳桌面'" @click="perform(collect)"><AssistantIcon name="refresh"/></button>
       <button class="header-action" aria-label="显示原桌面" title="显示原桌面" :disabled="busy || !data?.settings.desktopCollected" @click="perform(release)"><AssistantIcon name="desktop"/></button>
       <button class="collapse-button" :aria-label="collapsed ? '展开收纳框' : '收起收纳框'" :title="collapsed ? '展开' : '收起'" @click="perform(toggleCollapsed)"><AssistantIcon :name="collapsed ? 'expand' : 'collapse'"/></button>
@@ -244,31 +251,32 @@ onBeforeUnmount(() => { disposeProgress?.();disposeData?.(); document.removeEven
       <DesktopZoneWindow v-if="activeProject && projects.some(project => project.id === activeProject)" :key="activeProject" :zone-id="activeProject" embedded/>
       <template v-else>
       <nav class="collection-tabs" aria-label="收纳分类">
-        <button v-for="tab in tabs" :key="tab.id" :data-tab="tab.id" :class="{ active: activeTab === tab.id, 'drop-target': dropTab === tab.id }" :aria-pressed="activeTab === tab.id" @click="selectTab(tab.id)" @dragover.prevent="dropTab = tab.id" @dragleave="dropTab = ''" @drop.prevent="drop($event, tab.id)">{{ tab.label }}<small>{{ tab.items.length }}</small></button>
+        <button v-for="tab in tabs" :key="tab.id" :data-tab="tab.id" :class="{ active: activeTab === tab.id, 'drop-target': dropTab === tab.id }" :aria-pressed="activeTab === tab.id" :aria-label="`${tab.label}，${tab.items.length} 个项目`" @click="selectTab(tab.id)" @dragover.prevent="dropTab = tab.id" @dragleave="dropTab = ''" @drop.prevent="drop($event, tab.id)"><span>{{ tab.label }}</span><small>{{ tab.items.length }}</small></button>
       </nav>
         <label class="collection-search"><AssistantIcon name="search"/><input v-model="search" aria-label="搜索当前分类" placeholder="搜索当前分类"/><button v-if="search" aria-label="清除搜索" @click="search = ''"><AssistantIcon name="close"/></button></label>
-        <div class="collection-sort"><span>{{ selectedPaths.size ? `已选择 ${selectedPaths.size} 项` : `${visibleItems.length} 个项目` }}</span><select v-if="selectedPaths.size > 1" aria-label="批量分类" value="" @change="perform(() => classifySelection($event))"><option value="" disabled>分类到…</option><option v-for="tab in tabs" :key="tab.id" :value="tab.id">{{ tab.label }}</option></select><select aria-label="排序方式" :value="`${currentSort.by}:${currentSort.direction}`" @change="perform(() => changeSort($event))"><option value="modifiedAt:desc">最近修改</option><option value="modifiedAt:asc">修改最早</option><option value="createdAt:desc">最新创建</option><option value="createdAt:asc">创建最早</option><option value="name:asc">名称 A → Z</option><option value="name:desc">名称 Z → A</option><option v-if="activeTab !== 'apps'" value="type:asc">文件类型 ↑</option><option v-if="activeTab !== 'apps'" value="type:desc">文件类型 ↓</option></select></div>
+        <div class="collection-sort"><span>{{ selectedPaths.size ? `已选择 ${selectedPaths.size} 项` : `${visibleItems.length} 个项目` }}</span><select v-if="selectedPaths.size > 1" aria-label="批量分类" value="" @change="perform(() => classifySelection($event))"><option value="" disabled>分类到…</option><option v-for="tab in collectionCategories" :key="tab.id" :value="tab.id">{{ tab.label }}</option></select><select aria-label="排序方式" :value="`${currentSort.by}:${currentSort.direction}`" @change="perform(() => changeSort($event))"><option value="modifiedAt:desc">最近修改</option><option value="modifiedAt:asc">修改最早</option><option value="createdAt:desc">最新创建</option><option value="createdAt:asc">创建最早</option><option value="name:asc">名称 A → Z</option><option value="name:desc">名称 Z → A</option><option v-if="activeTab !== 'apps'" value="type:asc">文件类型 ↑</option><option v-if="activeTab !== 'apps'" value="type:desc">文件类型 ↓</option></select></div>
         <div class="collection-sort"><select v-model="typeFilter" aria-label="内容类型筛选"><option value="all">全部类型</option><option value="folder">文件夹</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音乐 / 音频</option><option value="document">文档</option></select><small>拖入文件或文件夹即可收纳引用</small></div><section class="collection-body" :aria-label="tabs.find(tab => tab.id === activeTab)?.label" @dragover.prevent @drop.prevent="drop($event, activeTab as CollectionTab)">
-          <div v-if="visibleItems.length" class="collection-files" role="listbox" aria-label="分类项目"><div v-for="item in visibleItems" :key="item.path" class="file-item" :class="{ selected: selectedPaths.has(item.path) }" role="option" :aria-selected="selectedPaths.has(item.path)" tabindex="0" :data-path="item.path" :title="item.name" :draggable="renamingPath !== item.path" @click="selectItem(item, $event)" @focus="selectedPath = item.path" @contextmenu.prevent="contextMenu($event,item)" @dragstart="dragStart($event, item.path)" @dblclick="perform(() => openFile(item.path))" @keyup.enter="!renamingPath && perform(() => openFile(item.path))"><img v-if="icons[item.path] && !failedIcons[item.path]" :src="icons[item.path]" alt="" @error="failedIcons[item.path]=true"/><AssistantIcon v-else data-icon-fallback :name="item.path.startsWith('shell:') ? 'recycle' : 'file'"/><input v-if="renamingPath === item.path" v-model="renameDraft" class="rename-input" aria-label="新文件名" maxlength="255" @click.stop @dblclick.stop @keydown.stop @keyup.enter.stop="saveRename(item)" @keyup.esc.stop="renamingPath = ''" @blur="saveRename(item)"/><span v-else>{{ item.name }}</span><small v-if="renamingPath===item.path && message && messageFailed" class="rename-error" role="alert">{{message}}</small></div></div>
+          <div v-if="visibleItems.length" class="collection-files" role="listbox" aria-label="分类项目"><div v-for="item in visibleItems" :key="item.path" class="file-item" :class="{ selected: selectedPaths.has(item.path), pinned: item.pinned }" role="option" :aria-selected="selectedPaths.has(item.path)" tabindex="0" :data-path="item.path" :title="item.name + (item.pinned ? '（已置顶）' : '')" :draggable="renamingPath !== item.path" @click="selectItem(item, $event)" @focus="selectedPath = item.path" @contextmenu.prevent="contextMenu($event,item)" @dragstart="dragStart($event, item.path)" @dblclick="perform(() => openFile(item.path))" @keyup.enter="!renamingPath && perform(() => openFile(item.path))"><img v-if="icons[item.path] && !failedIcons[item.path]" :src="icons[item.path]" alt="" @error="failedIcons[item.path]=true"/><AssistantIcon v-else data-icon-fallback :name="item.path.startsWith('shell:') ? 'recycle' : 'file'"/><i v-if="item.pinned" class="file-pin" title="已置顶" aria-label="已置顶"><AssistantIcon name="pin"/></i><input v-if="renamingPath === item.path" v-model="renameDraft" class="rename-input" aria-label="新文件名" maxlength="255" @click.stop @dblclick.stop @keydown.stop @keyup.enter.stop="saveRename(item)" @keyup.esc.stop="renamingPath = ''" @blur="saveRename(item)"/><span v-else>{{ item.name }}</span><small v-if="renamingPath===item.path && message && messageFailed" class="rename-error" role="alert">{{message}}</small></div></div>
           <p v-else class="collection-empty">{{ search || typeFilter!=='all' ? '没有符合当前条件的项目，请清除搜索或筛选。' : '这个分类还没有项目' }}</p>
         </section>
       <footer class="collection-footer"><span v-if="footerMessage" :role="footerFailed?'alert':'status'" :title="footerMessage">{{ footerMessage }}</span><span v-else>{{ data?.settings.desktopCollected ? '已收纳 · 新文件自动分类' : '原桌面已显示 · 点击顶部整理按钮可重新收纳' }}</span><span v-if="!footerMessage">F2 改名</span></footer>
       </template>
-      <div v-if="fileMenu" class="file-context-menu" role="menu" aria-label="文件操作" :style="{left:fileMenu.x+'px',top:fileMenu.y+'px'}" @keydown="menuKeydown"><button role="menuitem" data-menu-action="open" @click="chooseFileAction('open')">打开</button><button role="menuitem" data-menu-action="rename" :disabled="fileMenu.item.path.startsWith('shell:') || selectedPaths.size > 1" @click="chooseFileAction('rename')">重命名 <small>F2</small></button><button role="menuitem" data-menu-action="reveal" :disabled="fileMenu.item.path.startsWith('shell:')" @click="chooseFileAction('reveal')">在文件夹中显示</button><button role="menuitem" data-menu-action="trash" :disabled="fileMenu.item.path.startsWith('shell:')" @click="chooseFileAction('trash')">{{selectedPaths.size>1?`将 ${selectedPaths.size} 项移到回收站`:'移到回收站'}}</button></div>
+      <div v-if="fileMenu" class="file-context-menu" role="menu" aria-label="文件操作" :style="{left:fileMenu.x+'px',top:fileMenu.y+'px'}" @keydown="menuKeydown"><button role="menuitem" data-menu-action="open" @click="chooseFileAction('open')">打开</button><button role="menuitem" data-menu-action="pin" :disabled="busy || selectedPaths.size > 1" @click="chooseFileAction('pin')">{{ fileMenu.item.pinned ? '取消置顶' : '置顶' }}</button><button role="menuitem" data-menu-action="rename" :disabled="fileMenu.item.path.startsWith('shell:') || selectedPaths.size > 1" @click="chooseFileAction('rename')">重命名 <small>F2</small></button><button role="menuitem" data-menu-action="reveal" :disabled="fileMenu.item.path.startsWith('shell:')" @click="chooseFileAction('reveal')">在文件夹中显示</button><button role="menuitem" data-menu-action="trash" :disabled="fileMenu.item.path.startsWith('shell:')" @click="chooseFileAction('trash')">{{selectedPaths.size>1?`将 ${selectedPaths.size} 项移到回收站`:'移到回收站'}}</button></div>
     </template>
   </main>
 </template>
 
 <style scoped>
+.collection-files .file-pin{position:absolute;top:2px;right:2px;display:grid;place-items:center;width:16px;height:16px;border-radius:3px;background:#25342ce8;color:#c1efd1}.collection-files .file-pin svg{width:12px;height:12px}
 .rename-error{font-size:10px;color:#ffd0c6;overflow-wrap:anywhere;line-height:1.4}
 :global(html), :global(body), :global(#app) { width:100%; height:100%; margin:0; overflow:hidden; background:transparent !important; }
 .desktop-collection { display:flex; flex-direction:column; width:100%; height:100%; overflow:hidden; border:1px solid #ffffff32; border-radius:6px; background:rgba(30,37,42,var(--collection-alpha)); color:#f4f7f6; font-family:'Microsoft YaHei UI',sans-serif; font-size:12px; }
 button,input { font:inherit; color:inherit; }button { cursor:pointer; }button:disabled { opacity:.45; cursor:default; }button:focus-visible,input:focus-visible { outline:2px solid #addcc0; outline-offset:-2px; }svg { width:16px; height:16px; flex-shrink:0; }
 .collection-header { display:flex; align-items:center; flex:0 0 36px; gap:9px; padding:0 10px; -webkit-app-region:no-drag; touch-action:none; user-select:none; cursor:move; }.collection-header > svg { color:#b8ddc7; }.collection-header b { white-space:nowrap; font-size:13px; font-weight:400; }.total-count { color:#d1dbd8; font-size:11px; font-variant-numeric:tabular-nums; margin-right:auto; }.collection-header button { display:grid; place-items:center; width:26px; height:28px; border:0; border-radius:3px; background:transparent; -webkit-app-region:no-drag; }.collection-header button:hover { background:#ffffff16; }
 .project-switch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 12px 6px;color:#d1dbd8;font-size:11px}.project-switch select{min-width:0;max-width:75%;padding:5px;background:#26352f;color:inherit;border:1px solid #ffffff28;border-radius:3px;font:inherit}.desktop-collection :deep(.zone-window.embedded){flex:1;min-height:0}
-.collection-tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); flex:0 0 33px; margin:0 10px; border-bottom:1px solid #ffffff22; gap:3px; }.collection-tabs button { position:relative; border:0; border-bottom:2px solid transparent; background:transparent; color:#d1dbd8; padding:0; white-space:nowrap; }.collection-tabs button:hover { color:#fff; background:#ffffff0b; }.collection-tabs .active { color:#c1efd1; border-bottom-color:#a4dbb6; }.collection-tabs small { font-size:9px; margin-left:4px; font-variant-numeric:tabular-nums; }.collection-tabs .drop-target { background:#a4dbb633; outline:1px solid #a4dbb6; }
+.collection-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); flex:0 0 33px; margin:0 10px; border-bottom:1px solid #ffffff22; gap:3px; }.collection-tabs button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:0; border:0; border-bottom:2px solid transparent; background:transparent; color:#d1dbd8; padding:0; line-height:14px; white-space:nowrap; }.collection-tabs button:hover { color:#fff; background:#ffffff0b; }.collection-tabs .active { color:#c1efd1; border-bottom-color:#a4dbb6; }.collection-tabs small { font-size:9px; line-height:10px; font-variant-numeric:tabular-nums; }.collection-tabs .drop-target { background:#a4dbb633; outline:1px solid #a4dbb6; }
 .collection-search { display:flex; align-items:center; flex:0 0 29px; gap:7px; margin:8px 12px 4px; padding:0 7px; border-radius:3px; background:#00000021; color:#cfdbd5; }.collection-search svg { width:13px; height:13px; }.collection-search input { min-width:0; width:100%; height:28px; padding:0; border:0; background:transparent; caret-color:#b7e5c7; }.collection-search input::placeholder { color:#c1cec6; }.collection-search button { display:grid; place-items:center; padding:0; border:0; background:transparent; }
-.collection-body { flex:1; min-height:0; overflow:auto; padding:4px 10px 8px; scrollbar-width:thin; scrollbar-color:#b6c7bd66 transparent; }.collection-files { display:grid; grid-template-columns:repeat(auto-fill,minmax(68px,1fr)); align-content:start; gap:4px; }.collection-files .file-item { display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; height:82px; padding:8px 3px 5px; border:1px solid transparent; border-radius:4px; background:transparent; }.collection-files .file-item:hover,.collection-files .file-item:focus-visible,.collection-files .file-item.selected { border-color:#ffffff30; background:#ffffff14; }.collection-files img,.collection-files svg { width:32px; height:32px; object-fit:contain; flex-shrink:0; }.collection-files span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; width:100%; overflow:hidden; overflow-wrap:anywhere; text-align:center; line-height:16px; font-size:11px; }.collection-empty { margin:44px 0; text-align:center; color:#d3ded8; }
+.collection-body { flex:1; min-height:0; overflow:auto; padding:4px 10px 8px; scrollbar-width:thin; scrollbar-color:#b6c7bd66 transparent; }.collection-files { display:grid; grid-template-columns:repeat(auto-fill,minmax(68px,1fr)); align-content:start; gap:4px; }.collection-files .file-item { position:relative; display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; height:82px; padding:8px 3px 5px; border:1px solid transparent; border-radius:4px; background:transparent; }.collection-files .file-item:hover,.collection-files .file-item:focus-visible,.collection-files .file-item.selected { border-color:#ffffff30; background:#ffffff14; }.collection-files img,.collection-files svg { width:32px; height:32px; object-fit:contain; flex-shrink:0; }.collection-files span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; width:100%; overflow:hidden; overflow-wrap:anywhere; text-align:center; line-height:16px; font-size:11px; }.collection-empty { margin:44px 0; text-align:center; color:#d3ded8; }
 .collection-todos { flex:1; min-height:0; overflow:hidden; }.collection-footer { display:flex; justify-content:space-between; gap:10px; flex:0 0 auto; padding:6px 12px; font-size:10px; color:#cfdbd4; }.collection-footer [role=alert] { color:#ffcec7; line-height:1.5; }::selection { color:#fff; background:#47614f; }
 .collection-sort { display:flex; justify-content:space-between; align-items:center; padding:0 13px 5px; font-size:10px; color:#d1dbd8; }.collection-sort select { max-width:145px; border:0; background:#26352f; border-radius:3px; padding:3px; color:#e4eee7; font:inherit; }.rename-input { width:100%; min-width:0; height:27px; padding:2px; border:1px solid #b7dfc7; background:#162b21; color:white; text-align:center; font-size:11px; }
 .file-context-menu { position:fixed; z-index:20; width:164px; padding:4px; border:1px solid #718b78; border-radius:4px; background:#25342c; color:#eef4ef; }.file-context-menu button { display:flex; align-items:center; justify-content:space-between; width:100%; height:32px; padding:0 10px; border:0; border-radius:2px; background:transparent; color:inherit; font:inherit; text-align:left; }.file-context-menu button:hover:not(:disabled),.file-context-menu button:focus-visible { background:#ffffff18; }.file-context-menu button:last-child { border-top:1px solid #ffffff20; border-radius:0; }.file-context-menu small { color:#c1d3c6; }

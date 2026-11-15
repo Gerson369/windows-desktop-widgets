@@ -25,6 +25,7 @@ const paths: Record<string, string> = {
   break: 'M12 3v3 M12 9v6 M7 10l5-2 5 2 M12 15l-4 6 M12 15l5 6',
   file: 'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h6',
   plus: 'M12 5v14 M5 12h14',
+  pin: 'M8 3h8 M9 3v6l-3 4v2h12v-2l-3-4V3 M12 15v7',
   close: 'M6 6l12 12 M18 6 6 18',
   undo: 'M9 5 4 10l5 5 M4 10h9a7 7 0 0 1 7 7v2',
   check: 'M5 12l4 4L19 6'

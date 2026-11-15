@@ -1,8 +1,17 @@
-const {app,BrowserWindow,ipcMain,Menu}=require('electron')
+const {app,BrowserWindow,ipcMain,Menu,shell}=require('electron')
 const fs=require('node:fs')
 const path=require('node:path')
 const root=path.resolve(__dirname,'..')
 const testDirectory=process.env.GERSON_E2E_DATA_DIRECTORY
+const openPath=shell.openPath.bind(shell)
+shell.openPath=async target=>{
+ const relative=path.relative(testDirectory,path.resolve(target))
+ if(fs.existsSync(path.join(testDirectory,'capture-open-path')) && relative && !relative.startsWith('..') && !path.isAbsolute(relative)){
+  fs.appendFileSync(path.join(testDirectory,'opened-paths.jsonl'),JSON.stringify(target)+'\n')
+  return ''
+ }
+ return openPath(target)
+}
 const collectionFixture=path.join(testDirectory,'collection-items.json')
 const withCollection=data=>{
  if(!fs.existsSync(collectionFixture))return data
