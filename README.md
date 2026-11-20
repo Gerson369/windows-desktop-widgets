@@ -104,6 +104,7 @@
 
 ```powershell
 npm ci
+npm run build:native
 npm run dev
 ```
 
