@@ -13,5 +13,22 @@ onMounted(()=>{void refresh()})
 onBeforeUnmount(()=>{active=false;clearTimeout(timer)})
 </script>
 <template>
-  <template v-if="data"><div class="entry">CPU <b>{{percent(data.cpu)}}</b></div><div class="entry">内存 <b>{{(data.memoryUsed/1073741824).toFixed(1)}} / {{(data.memoryTotal/1073741824).toFixed(1)}} GB</b></div><div class="entry">GPU 3D 引擎 <b>{{percent(data.gpu)}}</b></div><div class="entry">下载 <b>{{speed(data.down)}}</b><br/>上传 <b>{{speed(data.up)}}</b></div><div v-for="(battery,index) in data.batteries" :key="index" class="entry">{{battery.name}} <b>{{battery.percent}}%</b></div><p v-if="!data.batteries.length" class="hint">未读取到电池。台式机可能没有电池；部分耳机和蓝牙设备不向 Windows 提供电量。</p><p v-for="warning in data.warnings" :key="warning" class="hint">{{warning}}</p><small>采样于 {{new Date(data.at).toLocaleTimeString('zh-CN')}}；约每 10 秒采样。GPU 为 3D 引擎合计，虚拟网卡可能与物理网卡重复计数。</small></template><p v-else role="status">正在读取系统信息…</p><p v-if="error" role="alert">{{error}}</p>
+  <template v-if="data">
+    <dl class="device-readings">
+      <div><dt>处理器 <small>CPU</small></dt><dd>{{percent(data.cpu)}}</dd></div>
+      <div><dt>内存</dt><dd>{{(data.memoryUsed/1073741824).toFixed(1)}} <small>/ {{(data.memoryTotal/1073741824).toFixed(1)}} GB</small></dd></div>
+      <div><dt>图形处理器 <small>GPU 3D</small></dt><dd>{{percent(data.gpu)}}</dd></div>
+      <div><dt>网络下载</dt><dd>{{speed(data.down)}}</dd></div>
+      <div><dt>网络上传</dt><dd>{{speed(data.up)}}</dd></div>
+      <div v-for="(battery,index) in data.batteries" :key="index"><dt>{{battery.name}}</dt><dd>{{battery.percent}}%</dd></div>
+    </dl>
+    <p v-if="!data.batteries.length" class="hint">未读取到电池；部分蓝牙设备不向 Windows 提供电量。</p>
+    <p v-for="warning in data.warnings" :key="warning" class="hint">{{warning}}</p>
+    <small class="device-updated">采样于 {{new Date(data.at).toLocaleTimeString('zh-CN')}} · 约每 10 秒更新</small>
+    <p class="hint">GPU 为 3D 引擎合计；虚拟网卡可能与物理网卡重复计数。</p>
+  </template>
+  <p v-else role="status">正在读取系统信息…</p><p v-if="error" role="alert">{{error}}</p>
 </template>
+<style scoped>
+.device-readings{display:grid;gap:0;margin:0 0 12px}.device-readings>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 2px;border-bottom:1px solid var(--widget-line,#ffffff24)}.device-readings dt{display:grid;gap:3px;font-size:12px;color:#d7e3db;min-width:0;overflow-wrap:anywhere}.device-readings dd{margin:0;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.device-readings small,.device-updated{font-size:10px;color:#bdcbc3}.device-readings dd small{font-size:11px}
+</style>

@@ -981,3 +981,91 @@ test('daily cup starts at each opening time without changing the saved daily his
   assert.equal(hydrationPlanClock(plan,drank,undefined,at(20)),undefined)
   assert.deepEqual({plan,day,drank},before)
 })
+
+
+test('calendar colors round-trip while old events remain valid and CSS payloads are rejected', () => {
+  const { defaultSuite, validateSuite, calendarEventColors } = loadTypeScript('src/main/widget-suite.ts')
+  const event = { id: 'one', title: '讨论', start: '2026-11-20T09:00:00Z', end: '2026-11-20T10:00:00Z', allDay: false, category: 'work' }
+  assert.equal(Object.hasOwn(validateSuite({ ...defaultSuite(), events: [event] }).events[0], 'color'), false)
+  for (const color of [...calendarEventColors, '#ABCDEF']) assert.equal(validateSuite({ ...defaultSuite(), events: [{ ...event, color }] }).events[0].color, color)
+  for (const color of ['red', '#abc', 'url(https://example.com)', 'var(--color)', 12, null, {}]) assert.throws(() => validateSuite({ ...defaultSuite(), events: [{ ...event, color }] }))
+})
+
+async function calendarEditor() {
+  const vm = require('node:vm'), ts = require('typescript'), vue = require('vue')
+  const { parse, compileScript } = require('@vue/compiler-sfc')
+  const { renderToString } = require('vue/server-renderer')
+  const { defaultData } = loadTypeScript('src/main/types.ts')
+  const { agenda } = loadTypeScript('src/main/calendar-service.ts')
+  const { descriptor } = parse(fs.readFileSync('src/renderer/components/suite/CalendarCard.vue', 'utf8'))
+  const script = compileScript(descriptor, { id: 'calendar-editor-test' })
+  const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const props = vue.reactive({ data: defaultData() }), calls = []
+  let sequence = 0, rejectSave = false
+  const toolbox = { suite: {
+    agenda: async (first, last) => agenda(props.data.suite.events, [], first, last),
+    save: async patch => {
+      calls.push(JSON.parse(JSON.stringify(patch)))
+      if (rejectSave) { rejectSave = false; throw Error('磁盘写入失败') }
+      Object.assign(props.data.suite, patch)
+    }
+  } }
+  const context = { exports: {}, Error, Date, Intl, crypto: { randomUUID: () => `calendar-test-${++sequence}` }, require: request => {
+    if (request === 'vue') return vue
+    if (request === '../../toolbox') return { toolbox }
+    if (request === '../../../main/widget-suite') return loadTypeScript('src/main/widget-suite.ts')
+    if (request.endsWith('.vue')) return {}
+    throw Error(`Unexpected calendar dependency: ${request}`)
+  } }
+  vm.runInNewContext(compiled, context)
+  const component = context.exports.default
+  let state
+  await renderToString(vue.createSSRApp({ props: component.props, setup(currentProps, setupContext) { state = component.setup(currentProps, setupContext); return () => null } }, props))
+  await state.refresh()
+  return { props, calls, state, failNextSave: () => { rejectSave = true } }
+}
+
+test('calendar editor creates distinct colors, preserves all-day boundaries and retries a failed edit without losing its draft', async () => {
+  const editor = await calendarEditor(), { state, props, calls } = editor
+  await state.beginCreate()
+  assert.equal(state.editorOpen.value, true)
+  const day = state.selected.value
+  state.title.value = '项目讨论'; state.category.value = 'work'; state.color.value = '#e7b37b'
+  state.start.value = `${day}T10:00`; state.end.value = `${day}T11:00`
+  await state.perform(state.save)
+  const saved = { ...props.data.suite.events[0] }
+  assert.equal(saved.title, '项目讨论'); assert.equal(saved.color, '#e7b37b')
+  assert.equal(state.editorOpen.value, false)
+  assert.equal(state.selectedEvents.value.length, 1)
+  assert.equal(state.eventColor({ ...saved, source: '工作' }), '#e7b37b')
+
+  await state.beginCreate()
+  assert.equal(state.color.value, '#8ab9f1')
+  state.title.value = '休息日'; state.allDay.value = true; state.eventDate.value = day
+  await state.perform(state.save)
+  const allDay = props.data.suite.events[1]
+  assert.equal(allDay.allDay, true); assert.equal(new Date(allDay.start).getHours(), 0)
+  const firstDay = new Date(allDay.start)
+  assert.equal(new Date(allDay.end).getTime(), new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + 1).getTime())
+  assert.equal(state.selectedEvents.value[0].id, allDay.id)
+
+  await state.edit({ ...saved, source: '工作' })
+  state.title.value = '更新后的讨论'; state.color.value = '#cbacf0'
+  editor.failNextSave(); await state.perform(state.save)
+  assert.equal(state.editorOpen.value, true); assert.equal(state.title.value, '更新后的讨论')
+  assert.match(state.error.value, /写入失败/); assert.equal(props.data.suite.events[0].title, '项目讨论')
+  await state.perform(state.save)
+  assert.equal(props.data.suite.events.find(event => event.id === saved.id).color, '#cbacf0')
+  assert.equal(props.data.suite.events.find(event => event.id === saved.id).title, '更新后的讨论')
+  assert.equal(state.editorOpen.value, false); assert.equal(state.error.value, '')
+
+  await state.beginCreate(); state.title.value = '时间检查'
+  state.start.value = `${day}T11:00`; state.end.value = `${day}T10:00`
+  const before = calls.length
+  await state.perform(state.save)
+  assert.equal(calls.length, before); assert.match(state.error.value, /结束时间须晚于/)
+  assert.equal(state.editorOpen.value, true)
+  state.closeEditor(); assert.equal(state.editorOpen.value, false)
+  await state.edit({ id: 'external', title: '订阅日程', source: '订阅', start: saved.start, end: saved.end, allDay: false })
+  assert.equal(state.editorOpen.value, false)
+})

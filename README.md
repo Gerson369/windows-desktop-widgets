@@ -1,181 +1,109 @@
 # 桌面搭子
 
-**把常用文件、待办和喝水活动提醒放在 Windows 桌面上。**
+**常用软件随手开，今天要做的事和重要日子，就放在桌面上。**
 
-桌面搭子提供文件收纳框、日常工具面板和健康提醒面板。常用软件可以置顶后双击打开；待办、便签、饮水记录和布局保存在本机，日常使用无需反复打开完整窗口。
+桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-适用于 **Windows 10 / 11 x64** · 当前版本 **v2.6.17**
+**Windows 10 / 11 x64 · v2.7.0 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [三步开始用](#三步开始用) · [功能截图](#功能截图) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.7.0) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.7.0/collection.png"><img src="docs/images/v2.7.0/collection.png" alt="桌面搭子2.7.0实际运行的收纳界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>日历日程：选中一天，直接查看当天安排</strong><br /><a href="docs/images/v2.7.0/calendar-agenda.png"><img src="docs/images/v2.7.0/calendar-agenda.png" alt="桌面搭子2.7.0实际运行的日历和彩色日程" width="360" /></a></td>
+  </tr>
+</table>
+
+本页图片直接截取自 v2.7.0 实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。截图时广州天气接口暂不可用，界面如实保留该状态。
+
+## v2.7.0 更新
+
+- **界面更圆润，也更清楚**：统一圆角线性图标、按钮、输入框与选中状态，保留深色半透明桌面风格，重新整理间距和文字层级。
+- **倒数日加入常用节日**：节日与自定义日期分组显示，窄窗口每行两列、较宽窗口每行三列；不再一个节日占一整行。默认只显示近期节日，更多节日按需展开。
+- **日历更接近日常安排**：上方选日期，下方查看当天事项；事项可以选颜色，新增和编辑时用清楚的竖向表单填写名称、时间、类别与颜色。
+- **首页换成新版实拍界面**：用实际软件窗口替换旧版长图库，并补充下载、上手和功能操作说明。
+
+## 它能帮你做什么
+
+| 功能 | 日常怎么用 |
+| --- | --- |
+| 文件收纳 | 默认打开“全部”，也可切换应用、文件、图片、影音。支持搜索、筛选、排序和多选分类；拖入文件只添加引用，原文件位置不变。 |
+| 常用项目置顶 | 右键应用、文件或图片选择“置顶”，在全部及所属分类中优先显示，重启后保留；双击打开，右键可取消置顶。 |
+| 待办与提醒 | 按待办、今天、计划、已完成查看事项。点击文字直接改名，点击铃铛设置安排日期、具体时间和提醒。 |
+| 日历与倒数日 | 查看当天彩色日程，添加自己的生日、纪念日和交付日期；同时查看春节、端午、中秋等常用节日的倒数。 |
+| 喝水与活动 | 按剩余目标和使用时段分配喝水量，点击水杯记录当前量；活动后点击脊柱图标。两边各有独立的15秒撤销。 |
+| 其他桌面工具 | 便签、世界时钟、多城市天气、专注计时、设备读数，以及面板显隐、透明度、配色和布局备份。 |
+
+## 快速上手
+
+1. **展开收纳框，置顶常用项目。** 打开软件后进入“全部”。右键常用应用选择“置顶”，以后直接在前面双击打开；文件也可拖入分类栏或列表添加引用。
+2. **把今天的安排放到桌面。** 在待办页添加事项；在日历页选中日期后点击“新建”，填写事项和时间，再选一个颜色。倒数日会显示近期节日，也能添加自己的重要日期。
+3. **按自己的节奏设置提醒。** 点击“桌面搭子”右上角的设置按钮，在“健康”里设置每日目标、结束时间与提醒方式。喝水后点水杯，活动后点脊柱图标；误点时在15秒内分别撤销。
+
+希望开机就能用，可在 **设置 → 桌面 → 组件** 开启“开机启动”。点击系统托盘中的“桌面搭子”图标可以重新显示面板。
 
 ## 下载与安装
 
-打开 [Releases 下载页](https://github.com/Gerson369/windows-desktop-widgets/releases/latest)，在附件中选择：
-
-| 版本 | 下载文件 | 怎么使用 |
+| 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [windows-desktop-widgets-2.6.17-x64-setup.exe](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.6.17/windows-desktop-widgets-2.6.17-x64-setup.exe) | 运行安装向导，适合长期放在这台电脑使用。 |
-| 免安装版 | [windows-desktop-widgets-2.6.17-x64-portable.exe](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.6.17/windows-desktop-widgets-2.6.17-x64-portable.exe) | 下载后直接运行，无需安装向导。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.0/windows-desktop-widgets-2.7.0-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.0/windows-desktop-widgets-2.7.0-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.0/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
-两种版本功能相同，沿用已有数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不代表配置会跟随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
+两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
-已有旧版时，请先按下方的[升级步骤](#升级与数据保留)退出旧程序，再打开新版。
+## 真实界面
 
-## 三步开始用
+下面均为新版软件的实际窗口截图。点击图片可查看原图。
 
-1. **打开软件，展开“桌面收纳”。** 默认进入“全部”，也可以切到应用、文件、图片或影音。搜索框查找当前分类，双击项目打开；拖入其他文件或文件夹可添加引用，原文件位置不变。
-2. **把每天要用的项目置顶。** 右键应用、图片或文件，选择“置顶”。它会排到“全部”和所属分类的前面，重启后仍保留；需要恢复普通排序时，右键选择“取消置顶”。
-3. **记待办，设提醒。** 在“桌面搭子”添加待办，点击事项的铃铛设置时间与提醒。点击面板右上角的设置按钮进入“健康”，设置饮水目标、时段和提醒间隔；喝水后点水杯，活动后点脊柱图标。
-
-希望开机就能用，可以在 **设置 → 桌面 → 组件** 开启“开机启动”。面板被隐藏时，点击系统托盘中的“桌面搭子”图标可重新显示。
-
-## 功能一览
-
-| 功能 | 可以做什么 |
-| --- | --- |
-| 桌面收纳 | 默认查看全部项目，按应用、文件、图片、影音切换；搜索、筛选、排序、多选分类、置顶、重命名和移到回收站。分类名称在上、数量小字在下，窄窗口也保留五栏。 |
-| 待办 | 按“待办 / 今天 / 计划 / 已完成”查看；设置安排日期、具体时间和提醒，逾期事项有标识。 |
-| 喝水与活动 | 显示每日目标、已喝与剩余水量；按当前杯量记录，支持固定间隔和每日计划，喝水与活动分别撤销。 |
-| 日常工具 | 日历、便签、倒数日、专注计时、时钟、多城市天气，以及 CPU、内存、GPU、网络等设备读数。 |
-| 布局与外观 | 拖动吸附、面板显隐、透明度、配色、字号与布局备份；健康面板可单独摆放，也可贴靠收纳框或桌面搭子。 |
-| 数据备份 | 在 **设置 → 桌面 → 数据** 导出全部数据或从备份导入。导入会替换当前配置，请先备份。 |
+<table>
+  <tr>
+    <td width="50%" valign="top"><strong>待办：记下一件事，安排时间，再逐项完成</strong><br /><a href="docs/images/v2.7.0/todos.png"><img src="docs/images/v2.7.0/todos.png" alt="实际运行的待办界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.7.0/countdown.png"><img src="docs/images/v2.7.0/countdown.png" alt="实际运行的节日和自定义倒数日网格" width="360" /></a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><strong>日程编辑：名称、时间和颜色按顺序填写</strong><br /><a href="docs/images/v2.7.0/calendar-editor.png"><img src="docs/images/v2.7.0/calendar-editor.png" alt="实际运行的日历事项竖向编辑表单" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>便签：随手写下内容，自动保存到本机</strong><br /><a href="docs/images/v2.7.0/notes.png"><img src="docs/images/v2.7.0/notes.png" alt="实际运行的便签编辑界面" width="360" /></a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.7.0/settings.png"><img src="docs/images/v2.7.0/settings.png" alt="实际运行的健康设置" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>健康面板：查看杯量、已喝与剩余目标</strong><br /><a href="docs/images/v2.7.0/health.png"><img src="docs/images/v2.7.0/health.png" alt="实际运行的喝水与活动面板" width="360" /></a></td>
+  </tr>
+</table>
 
 ## 喝水量怎么算
 
-选择 **固定间隔** 后，软件按“剩余目标水量 ÷ 从本轮实际开始计时到结束时间的提醒次数”计算满杯量。实际开始时间早于设置的开始时间时，按设置的开始时间分配；晚开电脑时就按实际开始时间分配。
+固定间隔模式会按 **剩余目标水量 ÷ 从本轮实际开始计时到设定结束时间的提醒次数** 分配满杯量。晚开电脑时从实际开始时间计算；早于设置的开始时间时，按设置的开始时间分配。
 
-例如当天目标 2L、还没记录喝水、结束时间 20:00、每 15 分钟提醒一次：
+例如当天目标2L、尚未记录喝水、11:00开始、20:00结束、每15分钟提醒一次：9小时共36次，本轮满杯约56ml。水杯随计时蓄水，半个间隔约28ml，此时点击只记录28ml；下一轮会按剩余水量与时段重新分配。每次显示取整，末杯不超过剩余目标，临近结束不强制补足。
 
-| 实际开始时间 | 用于分配的时长 | 提醒次数 | 本轮满杯约多少 |
-| --- | --- | --- | --- |
-| 10:00 | 10 小时 | 40 次 | 50ml |
-| 11:00 | 9 小时 | 36 次 | 56ml |
+“每日计划”则由你设置水杯容量，软件按剩余水量和时段安排下一次提醒。两种模式共用当天记录，重启后保留已喝水量并重新计时。喝水和活动各自保留最近一次15秒撤销，同一项再次完成时只保留该项的新撤销。
 
-水杯随计时逐渐蓄水，显示的毫升数是**当前杯量**。11:00 开始的例子中，半个间隔时约为 28ml；此时点击水杯只累计 28ml，然后按剩余水量和剩余时段重新分配下一轮，不会把半杯算成一整杯。显示量取整，最后一杯不超过剩余目标；单次记录上限为 2000ml，临近结束不强制补足。
+图示只基于计时，不检测真实坐姿或饮水；饮水目标由你设置，分配结果不是个体饮水建议。
 
-选择 **每日计划** 时，则由你设置水杯容量，软件按剩余水量和剩余时段自动安排下一次提醒。两种方式共用当天饮水记录；重新打开软件会重新计时，保留当天已记录的水量。
+## 节日与日历说明
 
-喝水后点水杯、活动后点脊柱图标，对应位置会提供 **15 秒撤销**。两边各自保留最近一次操作，交替点击不会互相覆盖；撤销会恢复该项原来的记录和计时。同一项的新操作会替换旧撤销，过期、日期或相关设置改变后，旧操作不能覆盖当前数据。
+内置节日资料覆盖 **2026–2035年**，日期依据[香港天文台公历与农历日期对照表](https://www.hko.gov.hk/tc/gts/time/conversion1_text.htm)核对。这里展示的是节日当天与倒数，不是国务院调休或工作日安排。个人倒数日不受内置节日年份表限制。
 
-水杯溢水、面板积水和脊柱弯曲等效果只是计时提醒。软件不检测真实饮水量或坐姿；饮水目标由你设置，分配结果不属于个体饮水建议。
+日程可在本机创建、编辑、选色和删除，也可导入ICS或添加HTTPS日历订阅。订阅为只读合并展示，每30分钟检查更新；导入文件变化后需要重新导入。
 
-## v2.6.17 本次更新
+## 升级与本地数据
 
-本次发布包含 v2.6.16 的新增功能和修复，并进一步压缩分类栏。查看[完整更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.6.17)。
+1. 从系统托盘右键菜单选择 **退出**，等待原桌面图标恢复。收起或隐藏面板不等于退出程序。
+2. 安装新版或打开新版免安装文件，继续使用原有本地数据目录，不需要为了升级删除配置。
+3. 升级前如需备份，可在 **设置 → 桌面 → 数据** 导出全部数据。导入备份会替换当前配置，请先保留现有备份。
 
-- **分类更好找**：默认打开“全部”，也可分类型查看；分类名称缩短为“全部 / 应用 / 文件 / 图片 / 影音”，五栏等宽，数量放在名称下方，保持原有高度。
-- **常用项目置顶**：右键置顶或取消置顶；在全部及单个分类中优先显示，重启后保留，双击打开方式照旧。应用内重命名和运行期间检测到的外部改名会同步更新置顶路径。
-- **晚开电脑也能分配水量**：固定间隔根据实际开始时间、设定结束时间和剩余目标计算每次毫升数，提前喝半杯只记录半杯。
-- **喝水与活动各自撤销**：两项操作分别保留 15 秒撤销，解决交替点击后无法撤销另一项的问题。
-- **启动后直接跟随吸附**：健康面板贴着收起的收纳框时，首次展开即可跟随，无需重新拖动吸附。
+待办、便签、计划、饮水记录、置顶与布局保存在本机。导出文件可能包含便签正文、文件路径和私人日历订阅地址，请妥善保管，勿提交到公共仓库。收纳分类与拖入引用不移动原文件；只有明确选择移动文件、重命名或回收站操作时才执行相应操作。
 
-## 升级与数据保留
-
-1. 右键系统托盘中的“桌面搭子”图标，选择 **退出**，等待原桌面图标恢复。收起或隐藏面板不等于退出程序。
-2. 安装新版，或运行新版免安装文件。两种版本继续读取原有本地配置，无需为了升级删除数据。
-3. 检查待办、便签、置顶项目和布局是否保留。需要额外备份时，可事先在 **设置 → 桌面 → 数据** 选择“导出全部数据”。
-
-收纳框分类和拖入引用保留原文件位置；在整理预览中明确选择移动文件、重命名或移到回收站时，才执行相应文件操作。通过托盘退出会恢复原桌面图标。
-
-## 功能截图
-
-下方保留 26 张演示截图，按功能分组，每排两张，点击可查看原图。图库主要来自 v2.6.12–v2.6.15，展示对应功能；v2.6.17 的“全部”分类、置顶和紧凑分类栏请以当前软件为准，旧图并未逐张更新为新布局。
-
-截图使用隔离演示数据，天气与设备读数为固定样本，并非实时数据。超时动画为加速演示；健康图示只基于计时，不检测真实坐姿或饮水。
-
-### 桌面收纳
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>应用收纳：常用应用集中展示</strong><br /><a href="docs/images/gallery/collection-apps.png"><img src="docs/images/gallery/collection-apps.png" alt="应用收纳：常用应用集中展示" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>文件收纳：文档和文件夹分类查找</strong><br /><a href="docs/images/gallery/collection-files.png"><img src="docs/images/gallery/collection-files.png" alt="文件收纳：文档和文件夹分类查找" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>图片收纳：素材与灵感一目了然</strong><br /><a href="docs/images/gallery/collection-images.png"><img src="docs/images/gallery/collection-images.png" alt="图片收纳：素材与灵感一目了然" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>影音收纳：视频和录音分别归类</strong><br /><a href="docs/images/gallery/collection-media.png"><img src="docs/images/gallery/collection-media.png" alt="影音收纳：视频和录音分别归类" width="360" /></a></td>
-  </tr>
-</table>
-
-### 待办与日常工具
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>待办：记录、安排日期和分类查看</strong><br /><a href="docs/images/gallery/todos.png"><img src="docs/images/gallery/todos.png" alt="待办：记录、安排日期和分类查看" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>待办详情：安排日期、时间与提醒</strong><br /><a href="docs/images/gallery/todo-reminder.png"><img src="docs/images/gallery/todo-reminder.png" alt="待办详情：安排日期、时间与提醒" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>日历：查看日期与当天日程</strong><br /><a href="docs/images/gallery/calendar.png"><img src="docs/images/gallery/calendar.png" alt="日历：查看日期与当天日程" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>便签：把想法与重点留在桌面</strong><br /><a href="docs/images/gallery/notes.png"><img src="docs/images/gallery/notes.png" alt="便签：把想法与重点留在桌面" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>倒数日：重要日期还有多久</strong><br /><a href="docs/images/gallery/countdown.png"><img src="docs/images/gallery/countdown.png" alt="倒数日：重要日期还有多久" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>专注计时：留出一段不被打断的时间</strong><br /><a href="docs/images/gallery/focus.png"><img src="docs/images/gallery/focus.png" alt="专注计时：留出一段不被打断的时间" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>时间与时区：同时查看不同城市时间</strong><br /><a href="docs/images/gallery/clock.png"><img src="docs/images/gallery/clock.png" alt="时间与时区：同时查看不同城市时间" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>天气：当前天气与未来三天预报</strong><br /><a href="docs/images/gallery/weather.png"><img src="docs/images/gallery/weather.png" alt="天气：当前天气与未来三天预报" width="360" /></a></td>
-  </tr>
-</table>
-
-### 设备与健康提醒
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>设备读数：CPU、内存、GPU与网络</strong><br /><a href="docs/images/gallery/devices.png"><img src="docs/images/gallery/devices.png" alt="设备读数：CPU、内存、GPU与网络" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>健康面板：水杯当前毫升数与活动计时</strong><br /><a href="docs/images/gallery/health.png"><img src="docs/images/gallery/health.png" alt="健康面板：水杯当前毫升数与活动计时" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>每日目标：保留已喝水量，随时调整目标</strong><br /><a href="docs/images/gallery/health-goal.png"><img src="docs/images/gallery/health-goal.png" alt="每日目标：保留已喝水量，随时调整目标" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>超时积水：满水时仍可原位撤销（加速演示）</strong><br /><a href="docs/images/gallery/health-overdue.png"><img src="docs/images/gallery/health-overdue.png" alt="超时积水：满水时仍可原位撤销（加速演示）" width="360" /></a></td>
-  </tr>
-</table>
-
-### 健康设置
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>每日喝水计划：按剩余水量与时段安排提醒</strong><br /><a href="docs/images/gallery/settings-health-daily.png"><img src="docs/images/gallery/settings-health-daily.png" alt="每日喝水计划：按剩余水量与时段安排提醒" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>固定间隔：用熟悉的节奏喝水与活动</strong><br /><a href="docs/images/gallery/settings-health-fixed.png"><img src="docs/images/gallery/settings-health-fixed.png" alt="固定间隔：用熟悉的节奏喝水与活动" width="360" /></a></td>
-  </tr>
-</table>
-
-### 外观设置
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>外观：实时预览透明度、配色与字号</strong><br /><a href="docs/images/gallery/settings-appearance.png"><img src="docs/images/gallery/settings-appearance.png" alt="外观：实时预览透明度、配色与字号" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>外观细节：透明度、背景配色、文字颜色与字号</strong><br /><a href="docs/images/gallery/settings-appearance-controls.png"><img src="docs/images/gallery/settings-appearance-controls.png" alt="外观细节：透明度、背景配色、文字颜色与字号" width="360" /></a></td>
-  </tr>
-</table>
-
-### 桌面设置与数据管理
-
-<table>
-  <tr>
-    <td width="50%" valign="top"><strong>桌面组件：显隐、显示器与桌面行为</strong><br /><a href="docs/images/gallery/settings-desktop-components.png"><img src="docs/images/gallery/settings-desktop-components.png" alt="桌面组件：显隐、显示器与桌面行为" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>桌面行为：吸附、悬停展开和快捷键</strong><br /><a href="docs/images/gallery/settings-desktop-behavior.png"><img src="docs/images/gallery/settings-desktop-behavior.png" alt="桌面行为：吸附、悬停展开和快捷键" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>收纳管理：分类分区、规则与操作预览</strong><br /><a href="docs/images/gallery/settings-desktop-organizer.png"><img src="docs/images/gallery/settings-desktop-organizer.png" alt="收纳管理：分类分区、规则与操作预览" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>归档规则：先预览，再决定是否整理</strong><br /><a href="docs/images/gallery/settings-desktop-rules.png"><img src="docs/images/gallery/settings-desktop-rules.png" alt="归档规则：先预览，再决定是否整理" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>布局备份：保存与恢复组件和图标位置</strong><br /><a href="docs/images/gallery/settings-desktop-backups.png"><img src="docs/images/gallery/settings-desktop-backups.png" alt="布局备份：保存与恢复组件和图标位置" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>数据与隐私：本地保存、导入与导出</strong><br /><a href="docs/images/gallery/settings-desktop-data.png"><img src="docs/images/gallery/settings-desktop-data.png" alt="数据与隐私：本地保存、导入与导出" width="360" /></a></td>
-  </tr>
-</table>
+天气使用Open-Meteo，只发送所选城市坐标，不自动读取定位；日历订阅访问你添加的地址。天气服务有相应服务与商业条款。GPU、网络和电池读数受Windows及设备支持程度影响；工作区过小时可将健康面板拖开单独摆放。
 
 ## 从源码运行
 
-技术栈：Electron、Vue 3、TypeScript 与 C# 原生桌面桥接。
-
-需要 Windows x64、Node.js 22 LTS（附 npm）、Windows 自带的 .NET Framework 4.x C# 编译器。首次安装依赖和打包需要网络。
+需要Node.js与Windows构建环境。首次安装依赖后启动：
 
 ```powershell
-git clone https://github.com/Gerson369/windows-desktop-widgets.git
-cd windows-desktop-widgets
 npm ci
-npm run build:native
 npm run dev
 ```
 
@@ -188,46 +116,18 @@ npm run build
 npm run dist:windows
 ```
 
-`dist:windows` 会编译两个原生桥，生成 Windows x64 安装版和免安装版到 `release/`。原生二进制、依赖、构建输出及本机测试数据不提交到仓库。
+`dist:windows`编译原生桥，并把安装版和免安装版生成到`release/`。真实窗口截图与关键操作检查可运行：
 
-## 项目结构
-
-```text
-src/main/         Electron 主进程、本地数据、桌面与提醒逻辑
-src/preload/      隔离的 IPC 接口
-src/renderer/     Vue 界面与桌面组件
-native/           C# 桌面挂接及布局桥接源码
-scripts/          构建与隔离交互验证工具
-tests/            单元测试、契约与数据保护测试
+```powershell
+node tests/ui-gallery.mjs
 ```
 
-## 数据与边界
+该脚本使用独立数据目录，实际创建公开演示文件与事项，不读写你的个人配置，也不隐藏或移动真实桌面文件。
 
-- 待办、便签、计划、饮水记录、置顶和布局保存在本机。导出的配置可能包含便签正文、文件路径和私人日历订阅地址，请妥善保管，勿提交到公共仓库。
-- 天气使用 Open-Meteo，仅发送选择的城市坐标，不读取自动定位；日历订阅访问你自己添加的地址。天气接口有服务与商业使用条款，商业使用前请确认相应许可。
-- 日历订阅为只读合并展示；导入 ICS 文件后，如原文件变化，需要重新导入。
-- GPU、网络和电池读数受 Windows 与设备支持程度影响。健康提醒基于计时，无法判断是否真的喝水或起身。
-- 工作区过小时可能无法容纳贴靠组合，可将健康面板拖开单独摆放。
+## 验证与反馈
 
-此仓库不包含个人配置、凭据、桌面文件清单、第三方桌面软件拆包或本机测试记录。构建输出和本地验证资料不作为源码提交。
+v2.7.0已通过136项单元与契约检查、类型检查和生产构建。真实Electron窗口检查覆盖节日两列/三列布局、300px与420px日程表单、事项选色及新增编辑、收纳置顶、待办完成和便签保存；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.7.0)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
 
-## 验证范围
+遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 
-v2.6.17 已通过 **132 项单元与契约测试**、类型检查和生产构建；安装包版本、构建文件一致性与 SHA256 已校验。隔离的真实 Electron 窗口检查覆盖：
-
-- 300 / 360 / 420px 宽度下五栏等宽、名称与数量分行、五位数量不溢出，分类栏保持 33px。
-- 全部分类拖入自动归类、跨分类置顶、双击打开流程、重启保留及取消置顶。
-- 11:00 开始时的 56ml 满杯与 28ml 半杯记录、数据保存、喝水与活动独立撤销、过期和同类新操作替换。
-- 缺少或错误的旧吸附记录下，启动及重启后首次展开、收起和重复展开时健康面板跟随。
-
-本轮未实测安装向导覆盖升级、真实多屏热插拔、系统鼠标拖边和长时间连续运行。
-
-## 反馈与贡献
-
-遇到问题可在 [Issues](https://github.com/Gerson369/windows-desktop-widgets/issues) 提交 Windows 版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否包含私人内容，勿直接上传完整个人配置。
-
-提交代码前请运行上方验证命令；界面或交互改动可参考 `tests/` 与 `scripts/` 中的隔离检查。
-
-## 许可证
-
-[MIT](LICENSE)。依赖及第三方服务遵循各自许可证和服务条款。
+[MIT许可证](LICENSE)。依赖与第三方服务遵循各自许可证和条款。

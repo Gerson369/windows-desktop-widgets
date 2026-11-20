@@ -2,6 +2,7 @@ const test=require('node:test')
 const assert=require('node:assert/strict')
 const {loadTypeScript}=require('./load-typescript.cjs')
 const suite=loadTypeScript('src/main/widget-suite.ts')
+const holidays=loadTypeScript('src/main/holiday-countdowns.ts')
 const metrics=loadTypeScript('src/main/device-metrics.ts')
 const request=loadTypeScript('src/main/public-request.ts')
 const {defaultData}=loadTypeScript('src/main/types.ts')
@@ -34,6 +35,33 @@ test('focus resumes after restart, pauses exactly and reaches zero without reset
   assert.equal(suite.changeFocus(resumed,'reset',1200000).remainingSeconds,120)
   assert.throws(()=>suite.changeFocus(initial,'start',0,0))
   assert.equal(initial.endAt,null)
+})
+
+test('built-in holidays use verified lunar and Qingming dates rather than system lunar estimates',()=>{
+  const upcoming=holidays.holidayCountdowns('2027-01-01')
+  const expected={元旦:'2027-01-01',除夕:'2027-02-05',春节:'2027-02-06',元宵节:'2027-02-20',清明节:'2027-04-05',劳动节:'2027-05-01',端午节:'2027-06-09',七夕节:'2027-08-08',中秋节:'2027-09-15',国庆节:'2027-10-01',重阳节:'2027-10-08'}
+  assert.deepEqual(Object.fromEntries(upcoming.map(item=>[item.title,item.date])),expected)
+  assert.equal(new Set(upcoming.map(item=>item.id)).size,11)
+  assert.deepEqual(upcoming.map(item=>item.date),upcoming.map(item=>item.date).sort())
+  assert.equal(holidays.holidayCountdowns('2028-01-01').find(item=>item.title==='清明节').date,'2028-04-04')
+  const overlapping=holidays.holidayCountdowns('2031-01-01').filter(item=>item.date==='2031-10-01')
+  assert.deepEqual(new Set(overlapping.map(item=>item.title)),new Set(['中秋节','国庆节']))
+})
+
+test('holidays retain today, advance across years, and never guess lunar dates outside the verified range',()=>{
+  assert.equal(holidays.holidayCountdowns('2027-02-06').find(item=>item.title==='春节').date,'2027-02-06')
+  assert.equal(holidays.holidayCountdowns('2027-02-07').find(item=>item.title==='春节').date,'2028-01-26')
+  assert.equal(holidays.holidayCountdowns('2026-12-31')[0].date,'2027-01-01')
+  for(let year=2026;year<=2035;year++){
+    const rows=holidays.holidayCountdowns(`${year}-01-01`)
+    assert.equal(rows.length,11)
+    assert.ok(rows.every(item=>suite.validDateKey(item.date)))
+    assert.equal(holidays.hasVerifiedHolidayDates(`${year}-01-01`),true)
+  }
+  const unsupported=holidays.holidayCountdowns('2036-01-01')
+  assert.deepEqual(unsupported.map(item=>item.title),['元旦','劳动节','国庆节'])
+  assert.equal(holidays.hasVerifiedHolidayDates('2036-01-01'),false)
+  assert.throws(()=>holidays.holidayCountdowns('2027-02-30'),/日期/)
 })
 
 test('network rates discard first samples, resets and changed adapters',()=>{

@@ -1,0 +1,17 @@
+:root {
+  --widget-radius: 14px;
+  --widget-control-radius: 8px;
+  --widget-line: #d9e8e32b;
+  --widget-accent: #b8e1ca;
+  --widget-muted: #c0cec8;
+}
+
+.assistant-panel, .desktop-collection, .health-panel, .suite-widget {
+  color-scheme: dark;
+  text-rendering: optimizeLegibility;
+}
+
+.assistant-panel, .desktop-collection, .suite-widget {
+  scrollbar-width: thin;
+  scrollbar-color: #c6d9cd55 transparent;
+}

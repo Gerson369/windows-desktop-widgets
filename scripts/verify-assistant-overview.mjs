@@ -48,10 +48,10 @@ try{
  await click('[data-tool="calendar"]');assert.equal(await assistant(`document.querySelectorAll('.assistant-section-title').length`),0)
  await click('[data-tool="countdown"]')
  await until(()=>assistant(`document.querySelectorAll('.countdown-item').length===12`))
- assert.ok(await assistant(`Math.max(...[...document.querySelectorAll('.countdown-item')].map(item=>item.getBoundingClientRect().height))<70`))
+ assert.ok(await assistant(`getComputedStyle(document.querySelector('.countdown-list')).gridTemplateColumns.split(' ').length>=2 && Math.max(...[...document.querySelectorAll('.countdown-item')].map(item=>item.getBoundingClientRect().height))<=110`))
  assert.equal(await assistant(`document.querySelector('[data-tool="countdown"]').getAttribute('aria-label')`),'倒数日')
  await screenshot(page,'countdown.png')
- check('header modules open their existing settings/details directly; city and timezone selections update the header; countdown rows are compact and calendar has no repeated heading')
+ check('header modules open their existing settings/details directly; city and timezone selections update the header; countdown cards use compact multiple columns and calendar has no repeated heading')
  const now=Date.now(),key=offset=>{const date=new Date(now);date.setDate(date.getDate()+offset);return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`},today=key(0),future=key(1)
  const base={categoryId:'personal',createdAt:new Date(now).toISOString(),completed:false,order:0}
  const todos=[{...base,id:'today',title:'安排今天',dueAt:new Date(today+'T23:59:00').toISOString()},{...base,id:'future',title:'安排明天',dueAt:new Date(future+'T23:59:00').toISOString()},{...base,id:'unscheduled',title:'未安排'},{...base,id:'done',title:'已完成',completed:true}]

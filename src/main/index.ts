@@ -797,7 +797,10 @@ const stopDesktopCollection = async (showOriginalIcons = true): Promise<AppData>
 const refreshDesktopGroups = async (): Promise<AppData> => {
   const createdAt = new Date().toISOString()
   let items: import('./types').DesktopScanItem[] = []
-  if (process.platform === 'win32') {
+  if (isolatedTest && isAbsolute(process.env.GERSON_E2E_DESKTOP_DIRECTORY || '')) {
+    // Capture real sample files without exposing the personal desktop in public screenshots.
+    items = (await scanDesktop(process.env.GERSON_E2E_DESKTOP_DIRECTORY!)).items
+  } else if (process.platform === 'win32') {
     const roots = [desktopRoot(), ...(process.env.PUBLIC ? [join(process.env.PUBLIC, 'Desktop')] : [])]
     let missing = 0
     for (let attempt = 0; attempt < 4; attempt++) {
