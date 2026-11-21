@@ -4,23 +4,25 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.8.1 · MIT 开源**
+**Windows 10 / 11 x64 · v2.8.2 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.1) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.2) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 <table>
   <tr>
-    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.8.0/collection.png"><img src="docs/images/v2.8.0/collection.png" alt="桌面搭子2.8.0实际运行的收纳界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.8.2/collection.png"><img src="docs/images/v2.8.2/collection.png" alt="桌面搭子2.8.2实际运行的收纳界面" width="360" /></a></td>
     <td width="50%" valign="top"><strong>日历月视图：跨天安排用连续横条显示</strong><br /><a href="docs/images/v2.8.0/calendar-agenda.png"><img src="docs/images/v2.8.0/calendar-agenda.png" alt="桌面搭子2.8.0实际运行的日历和彩色日程" width="360" /></a></td>
   </tr>
 </table>
 
-本页当天清单截图来自 v2.8.1，其他界面截图来自 v2.8.0 的实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
+本页设置与收纳截图来自 v2.8.2，当天清单来自 v2.8.1，其他界面来自 v2.8.0 的实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；桌面面板的时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。外观设置中的时钟和文件是界面已标明的效果预览样例。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
 
-## v2.8.1 更新
+## v2.8.2 更新
 
-- **当天清单每项一行**：时间、颜色点、事项名称和编辑/删除按钮放在同一排，缩小行高；类别、结束时间在详情里查看。
-- **长标题也保持紧凑**：超出宽度时省略显示，鼠标悬停或点击查看完整名称，日程内容完整保留。
+- **设置更紧凑**：减少重复标题、卡片留白和行间距；外观预览在窄窗口也保持两个小面板并排，常用颜色和字号设置更容易找到。
+- **桌面分组始终可见**：组件、收纳、备份和数据标签固定在滚动区外，滚动时也能完整点击。
+- **分区每项一行**：名称、数量、开关和更多操作并排显示，说明放在完整一行，避免窄窗口里反复换行。
+- **收纳框缩小间距**：保留三列和32px图标，缩小卡片留白；搜索清除按钮固定在输入框同一排。
 
 ## 它能帮你做什么
 
@@ -45,9 +47,9 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/windows-desktop-widgets-2.8.1-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/windows-desktop-widgets-2.8.1-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/windows-desktop-widgets-2.8.2-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/windows-desktop-widgets-2.8.2-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
@@ -67,14 +69,20 @@
     <td width="50%" valign="top"><strong>编辑日程：修改内容、时间、颜色和跨天日期</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="实际运行的编辑日程界面" width="360" /></a></td>
   </tr>
   <tr>
+    <td width="50%" valign="top"><strong>外观设置：缩小预览，透明度、颜色与字号集中调整</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="v2.8.2实际运行的紧凑外观设置" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>收纳设置：分区名称、数量与开关放在同一行</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="v2.8.2实际运行的紧凑分区设置" width="360" /></a></td>
+  </tr>
+  <tr>
     <td width="50%" valign="top"><strong>便签：随手写下内容，自动保存到本机</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="实际运行的便签界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.8.0/settings.png"><img src="docs/images/v2.8.0/settings.png" alt="实际运行的设置界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="实际运行的设置界面" width="360" /></a></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><strong>健康面板：查看杯量、已喝与剩余目标</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="实际运行的健康面板界面" width="360" /></a></td>
     <td width="50%" valign="top"><strong>天气：真实读取当前天气与三日预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="实际运行的天气界面" width="360" /></a></td>
   </tr>
 </table>
+
+组件显隐、显示器选择和桌面行为集中在[组件设置](docs/images/v2.8.2/settings-components.png)。
 
 ## 喝水量怎么算
 
@@ -130,13 +138,14 @@ npm run dist:windows
 ```powershell
 node tests/ui-gallery.mjs
 node tests/calendar-popup.mjs
+node tests/settings-compact.mjs
 ```
 
 该脚本使用独立数据目录，实际创建公开演示文件与事项，不读写你的个人配置，也不隐藏或移动真实桌面文件。
 
 ## 验证与反馈
 
-v2.8.1已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px单行当天清单、长标题省略与完整详情、行内编辑删除，以及月历和底部浮窗、跨天横条与跨周分段、详情优先、只读来源的地点备注、全天结束日期、创建编辑、取消不保存、Esc关闭与焦点返回，以及保存失败保留全部输入和重试。收纳置顶、三列倒数日、待办完成和便签保存沿用v2.8.0的验证记录；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.1)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
+v2.8.2已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px设置页、20px字号的双列预览、透明度与颜色字号保存、桌面分组滚动后可见、分区单行及菜单、收纳三列与搜索清除按钮。日历、三列倒数日、待办和便签沿用v2.8.0–v2.8.1的真实窗口验证记录；截图采用实际运行窗口，示例内容已明确标注。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.2)。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

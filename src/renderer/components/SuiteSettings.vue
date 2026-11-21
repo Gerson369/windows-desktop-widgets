@@ -124,8 +124,8 @@ onMounted(async () => {
         </div>
       </section>
       <div class="settings-actions desktop-actions">
-        <button type="button" class="settings-primary" @click="emit('return')"><AssistantIcon name="expand"/>打开桌面搭子</button>
-        <button type="button" class="secondary" :disabled="busy" @click="perform(() => api.suite.visibility('toggle'), '正在切换组件显隐…', '已切换组件临时显隐')">临时显示 / 隐藏</button>
+        <button type="button" class="settings-primary" aria-label="打开助手（桌面搭子）" @click="emit('return')"><AssistantIcon name="expand"/>打开助手</button>
+        <button type="button" class="secondary" aria-label="临时显隐（显示或隐藏组件）" :disabled="busy" @click="perform(() => api.suite.visibility('toggle'), '正在切换组件显隐…', '已切换组件临时显隐')">临时显隐</button>
       </div>
       <section class="settings-card behavior-card">
         <h3>桌面行为</h3>
@@ -172,24 +172,24 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.suite-settings { display: grid; gap: 14px; min-width: 0; }
-.suite-settings h3 { margin: 0 0 12px; font-size: 15px; line-height: 1.5; }
+.suite-settings { display: grid; gap: 8px; min-width: 0; }
+.suite-settings h3 { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }
 .component-row { display: grid; grid-template-columns: 23px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .component-row:last-child { border-bottom: 0; padding-bottom: 0; }
 .component-icon { width: 22px; height: 22px; color: var(--settings-muted, #b5bec3); }
-.component-info { display: grid; gap: 8px; min-width: 0; }
-.component-name { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
-.component-info select { width: 100%; max-width: 228px; min-width: 0; }
+.component-info { display: grid; gap: 4px; min-width: 0; }
+.component-name { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.component-info select { width: 100%; max-width: 228px; min-width: 0; min-height:28px; padding:4px 6px; font-size:12px; }
 .desktop-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-.desktop-actions button { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-width: 0; }
+.desktop-actions button { display: inline-flex; justify-content: center; align-items: center; gap: 5px; min-width: 0; font-size:12px; }
 .desktop-actions svg { width: 17px; height: 17px; flex: 0 0 auto; }
 .behavior-card > .settings-hint { margin-bottom: 0; }
 .shortcut-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .shortcut-heading .settings-hint { margin: 5px 0 0; }
-.shortcut-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.shortcut-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .shortcut-keys > span { color: var(--settings-muted, #b5bec3); }
-.shortcut-keys kbd { min-width: 42px; padding: 6px 10px; border: 1px solid var(--settings-line, #394148); border-radius: 6px; background: #ffffff06; color: inherit; text-align: center; font: inherit; font-size: 12px; }
-.shortcut-editor { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--settings-line, #394148); }
+.shortcut-keys kbd { min-width: 32px; padding: 4px 7px; border: 1px solid var(--settings-line, #394148); border-radius: 6px; background: #ffffff06; color: inherit; text-align: center; font: inherit; font-size: 12px; }
+.shortcut-editor { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--settings-line, #394148); }
 .shortcut-editor input { width: 100%; min-width: 0; }
 .layout-card { display: flex; align-items: center; gap: 12px; }
 .layout-card > div { flex: 1; min-width: 0; }
@@ -197,13 +197,12 @@ onMounted(async () => {
 .layout-card .settings-hint { margin: 0; }
 .restore-button { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
 .restore-button svg { width: 20px; height: 20px; }
-.data-actions { margin: 16px 0; }
-.data-card .settings-hint, .privacy-card .settings-hint { margin: 9px 0 0; line-height: 1.8; }
+.data-actions { margin: 8px 0; }
+.data-card .settings-hint, .privacy-card .settings-hint { margin: 5px 0 0; line-height: 1.5; }
 .operation-status { margin: 0; }
 .suite-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; line-height: 1.7; color: #f0b7b2; }
 .suite-error > span { overflow-wrap: anywhere; }
 @media (max-width: 380px) {
   .component-row { gap: 9px; }
-  .desktop-actions { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

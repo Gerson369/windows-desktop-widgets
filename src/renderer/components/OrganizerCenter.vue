@@ -166,10 +166,11 @@ async function revert() {
     </div>
     <section :class="compact ? 'settings-card' : 'zone-section'">
       <div class="section-heading">
-        <div><h2>{{ compact ? '透明分区' : '透明桌面分区' }}</h2><p v-if="compact" class="settings-hint">只添加引用，保留原文件位置。</p></div>
+        <div><h2>{{ compact ? '透明分区' : '透明桌面分区' }}</h2></div>
         <span class="zone-capacity">{{ data.desktopZones.length }} / 12</span>
         <button v-if="compact" ref="newZoneButton" class="secondary compact-add" :aria-expanded="showZoneForm" :disabled="busy || data.desktopZones.length >= 12" @click="toggleZoneForm"><AssistantIcon name="plus"/>新建</button>
       </div>
+      <p v-if="compact" class="settings-hint zone-reference-hint">只添加引用，保留原文件位置。</p>
       <form v-if="!compact || showZoneForm" class="inline-form" @submit.prevent="perform(createZone)" @keydown.esc.stop="compact && toggleZoneForm()">
         <input ref="zoneNameInput" v-model="zoneName" maxlength="24" aria-label="新分区名称" placeholder="分区名称，例如：工作资料" required/>
         <button type="submit" class="secondary" :disabled="busy || !zoneName.trim() || data.desktopZones.length >= 12">{{ compact ? '创建' : '新建分区' }}</button>
@@ -259,22 +260,22 @@ async function revert() {
 </template>
 
 <style scoped>
-.organizer-compact { display: grid; gap: 14px; min-width: 0; }
-.organizer-compact .section-heading { gap: 10px; margin-bottom: 12px; }
+.organizer-compact { display: grid; gap: 8px; min-width: 0; }
+.organizer-compact .section-heading { gap: 8px; margin-bottom: 4px; }
 .organizer-compact h2 { margin: 0; font-size: 15px; line-height: 1.5; }
 .organizer-compact .section-heading > div { flex: 1; min-width: 0; }
-.organizer-compact .section-heading .settings-hint { margin: 4px 0 0; }
+.organizer-compact .zone-reference-hint { margin: 0 0 6px; }
 .organizer-compact .zone-capacity { margin-left: auto; font-size: 12px; white-space: nowrap; }
 .compact-add { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; white-space: nowrap; }
 .compact-add svg { width: 16px; height: 16px; }
 .organizer-compact .inline-form { flex-wrap: wrap; gap: 8px; }
 .organizer-compact .inline-form input { width: 100%; min-width: 0; }
 .compact-zones { display: grid; }
-.compact-zone-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 11px 0; border-bottom: 1px solid var(--settings-line, #394148); }
+.compact-zone-row { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 0; border-bottom: 1px solid var(--settings-line, #394148); }
 .compact-zone-row:last-child { border-bottom: 0; }
 .zone-identity { min-width: 0; }
-.compact-zone-row .zone-identity { display: flex; flex: 1; align-items: center; gap: 9px; }
-.compact-zone-row .zone-identity > svg { width: 20px; height: 20px; flex: 0 0 auto; color: var(--accent, #a9d9bf); }
+.compact-zone-row .zone-identity { display: grid; grid-template-columns:18px minmax(0,1fr) auto; flex: 1; align-items: center; gap: 6px; }
+.compact-zone-row .zone-identity > svg { width: 18px; height: 18px; color: var(--accent, #a9d9bf); }
 .compact-zone-row h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; margin: 0; }
 .compact-zone-row small { flex: 0 0 auto; color: var(--settings-muted, #b5bec3); font-size: 11px; white-space: nowrap; }
 .organizer-compact .settings-switch { flex: 0 0 auto; }
@@ -287,20 +288,20 @@ async function revert() {
 .item-menu-actions { position: absolute; top: 32px; right: 0; z-index: 5; display: grid; min-width: 126px; padding: 5px; background: #252b30; border: 1px solid var(--settings-line, #394148); border-radius: 8px; }
 .item-menu-actions button { width: 100%; padding: 9px 11px; border: 0; background: transparent; text-align: left; white-space: nowrap; }
 .item-menu-actions button:hover { background: #ffffff0b; }
-.view-all, .add-default-rules { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 40px; padding: 9px 0; border: 0; background: transparent; text-align: left; font-size: 12px; }
+.view-all, .add-default-rules { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; padding: 5px 0; border: 0; background: transparent; text-align: left; font-size: 12px; }
 .view-all { border-top: 1px solid var(--settings-line, #394148); }
 .view-all svg { width: 16px; height: 16px; margin-left: auto; }
 .add-default-rules svg { width: 18px; height: 18px; }
 .rule-tabs { margin-bottom: 10px; }
 .move-notice { margin: 0 0 10px; padding: 9px 10px; border: 1px solid #92743b; border-radius: 6px; background: #c9962514; color: #edc47e; font-size: 12px; line-height: 1.6; }
-.organizer-compact .rule-form { margin: 12px 0; padding: 12px; grid-template-columns: minmax(0, 1fr); background: #00000012; }
+.organizer-compact .rule-form { margin: 8px 0; padding: 8px; grid-template-columns: minmax(0, 1fr); background: #00000012; }
 .organizer-compact .rule-form label { font-size: 12px; }
 .organizer-compact .rule-form input, .organizer-compact .rule-form select { width: 100%; min-width: 0; }
 .organizer-compact .rule-form-actions { display: flex; align-items: center; gap: 12px; }
 .organizer-compact .path-picker input { flex: 1; width: 80px; }
 .organizer-compact .path-picker button { flex: 0 0 auto; }
 .compact-rule-list { margin: 0; }
-.compact-rule-list article { gap: 8px; padding: 11px 0; border-color: var(--settings-line, #394148); }
+.compact-rule-list article { gap: 6px; padding: 8px 0; border-color: var(--settings-line, #394148); }
 .compact-rule-list article > svg { width: 21px; height: 21px; flex: 0 0 auto; color: var(--settings-muted, #b5bec3); }
 .compact-rule-list strong { margin-bottom: 3px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .compact-rule-list small { color: var(--settings-muted, #b5bec3); font-size: 11px; line-height: 1.55; }
@@ -323,9 +324,6 @@ async function revert() {
 .organizer-feedback { margin: 0; }
 .organizer-error { color: #f0b7b2; font-size: 12px; line-height: 1.7; margin: 0; }
 @media (max-width: 380px) {
-  .compact-zone-row { gap: 5px; }
-  .compact-zone-row .zone-identity { flex-wrap: wrap; column-gap: 7px; row-gap: 3px; }
-  .compact-zone-row h3 { flex: 1; }
-  .compact-zone-row small { margin-left: 27px; flex-basis: 100%; }
+  .compact-zone-row { gap: 4px; }
 }
 </style>

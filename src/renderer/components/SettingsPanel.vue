@@ -92,20 +92,17 @@ onBeforeUnmount(() => dispose?.())
     <nav class="settings-tabs" aria-label="设置分类">
       <button v-for="item in sections" :key="item.id" :aria-pressed="section === item.id" @click="selectSection(item.id)">{{ item.label }}</button>
     </nav>
+    <nav v-if="data" v-show="section === 'desktop'" class="desktop-settings-tabs" aria-label="桌面设置分组">
+      <button v-for="tab in desktopTabs" :key="tab.id" :aria-pressed="desktopTab === tab.id" @click="desktopTab = tab.id">{{ tab.label }}</button>
+    </nav>
     <div v-if="data" ref="settingsBody" class="settings-body" :data-section="section">
       <section v-show="section === 'health'" aria-label="健康设置">
-        <div class="settings-heading"><h2>健康提醒</h2><p>按你的节奏安排喝水与活动。</p></div>
         <HydrationPlanSettings :data="data" @status="reportStatus('健康', $event)"/>
       </section>
       <section v-show="section === 'appearance'" aria-label="外观设置">
-        <div class="settings-heading"><h2>外观</h2><p>让桌面组件看起来更顺眼。</p></div>
         <AppearanceSettings :data="data" @status="reportStatus('外观', $event)"/>
       </section>
       <section v-show="section === 'desktop'" aria-label="桌面设置">
-        <div class="settings-heading"><h2>桌面管理</h2><p>安排组件、收纳与桌面布局。</p></div>
-        <nav class="desktop-settings-tabs" aria-label="桌面设置分组">
-          <button v-for="tab in desktopTabs" :key="tab.id" :aria-pressed="desktopTab === tab.id" @click="desktopTab = tab.id">{{ tab.label }}</button>
-        </nav>
         <div v-show="desktopTab === 'components'">
           <SuiteSettings :data="data" group="desktop" @return="emit('return')" @status="reportStatus('组件', $event)">
             <template #behavior>
