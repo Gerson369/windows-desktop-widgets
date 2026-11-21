@@ -11,6 +11,7 @@ const props = defineProps<{ data: AppData }>()
 const month = ref(dateKey(Date.now()).slice(0, 7)), selected = ref(dateKey(Date.now()))
 const events = ref<AgendaEvent[]>([]), error = ref(''), busy = ref(false)
 const editorOpen = ref(false), titleInput = ref<HTMLInputElement | null>(null)
+const popupOpen = ref(false), calendarDialog = ref<HTMLDialogElement | null>(null)
 const title = ref(''), start = ref(''), end = ref(''), eventDate = ref(selected.value)
 const allDay = ref(false), category = ref<'work' | 'personal'>('personal'), editingId = ref('')
 const color = ref<string>(calendarEventColors[0])
@@ -44,6 +45,23 @@ const selectedEvents = computed(() => daysWithEvents.value.find(day => day.date 
 const selectedTitle = computed(() => new Date(`${selected.value}T12:00:00`).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }))
 const isToday = (date: string) => date === dateKey(Date.now())
 function select(date: string) { selected.value = date }
+async function showPopup() {
+  popupOpen.value = true
+  await nextTick()
+  if (calendarDialog.value && !calendarDialog.value.open) calendarDialog.value.showModal()
+  if (editorOpen.value) titleInput.value?.focus()
+}
+async function openDay(date: string) {
+  if (busy.value) return
+  select(date); editorOpen.value = false; error.value = ''
+  await showPopup()
+}
+async function openEvent(event: AgendaEvent, date: string) {
+  if (busy.value) return
+  select(date)
+  if (props.data.suite.events.some(item => item.id === event.id)) await edit(event)
+  else await openDay(date)
+}
 function changeMonth(offset: number) {
   const current = /^\d{4}-(?:0[1-9]|1[0-2])$/.test(month.value) ? month.value : dateKey(Date.now()).slice(0, 7)
   const [year, number] = current.split('-').map(Number)
@@ -68,7 +86,7 @@ async function beginCreate() {
   allDay.value = false; category.value = 'personal'
   color.value = calendarEventColors[props.data.suite.events.length % calendarEventColors.length]
   error.value = ''; editorOpen.value = true
-  await nextTick(); titleInput.value?.focus()
+  await showPopup()
 }
 async function edit(event: AgendaEvent) {
   const local = props.data.suite.events.find(item => item.id === event.id)
@@ -77,9 +95,13 @@ async function edit(event: AgendaEvent) {
   start.value = localInput(local.start); end.value = localInput(local.end)
   allDay.value = local.allDay; category.value = local.category; color.value = eventColor(event)
   error.value = ''; editorOpen.value = true
-  await nextTick(); titleInput.value?.focus()
+  await showPopup()
 }
-function closeEditor() { if (!busy.value) { editorOpen.value = false; editingId.value = ''; error.value = '' } }
+function dismissPopup() {
+  popupOpen.value = false; editorOpen.value = false; editingId.value = ''; error.value = ''
+  calendarDialog.value?.close()
+}
+function closeEditor() { if (!busy.value) dismissPopup() }
 async function refresh() {
   const current = ++generation
   try {
@@ -106,7 +128,7 @@ async function save() {
   const item = { id: editingId.value || crypto.randomUUID(), title: title.value.trim(), start: first.toISOString(), end: last.toISOString(), allDay: allDay.value, category: category.value, color: color.value }
   await api.suite.save({ events: [...props.data.suite.events.filter(event => event.id !== item.id), item] })
   selected.value = dateKey(first); month.value = selected.value.slice(0, 7)
-  editorOpen.value = false; title.value = ''; editingId.value = ''
+  dismissPopup(); title.value = ''
 }
 async function refreshSubscriptions() {
   if (Date.now() - lastSubscriptionCheck < 30 * 60000) return
@@ -136,40 +158,42 @@ onBeforeUnmount(() => { generation++; clearInterval(timer) })
       <button type="button" class="calendar-today" @click="today">今天</button>
       <button type="button" class="calendar-icon-button" aria-label="上个月" title="上个月" @click="changeMonth(-1)"><AssistantIcon name="left"/></button>
       <button type="button" class="calendar-icon-button" aria-label="下个月" title="下个月" @click="changeMonth(1)"><AssistantIcon name="right"/></button>
+      <button type="button" class="calendar-icon-button calendar-add" aria-label="添加日程" title="添加日程" :disabled="busy" @click="beginCreate"><AssistantIcon name="plus"/></button>
     </div>
     <div class="calendar-month-scroll" aria-label="月历事项">
       <div class="calendar-grid" aria-label="选择日期">
         <small v-for="day in ['一', '二', '三', '四', '五', '六', '日']" :key="day">{{ day }}</small>
         <template v-for="(day, index) in daysWithEvents" :key="index">
-          <button v-if="day.date" type="button" class="calendar-day" :data-date="day.date" :class="{ 'is-today': isToday(day.date), 'has-events': day.events.length > 0 }" :aria-label="day.date" :aria-description="`${day.events.length} 项日程，选择日期查看完整事项`" :aria-pressed="day.date === selected" :aria-current="isToday(day.date) ? 'date' : undefined" @click="select(day.date)">
-            <span class="calendar-date-number">{{ Number(day.date.slice(-2)) }}</span>
-            <span v-for="event in day.preview" :key="event.id" class="calendar-month-event" :data-event-id="event.id" :style="{ '--event-color': eventColor(event) }" :title="event.title">{{ event.title }}</span>
-            <span v-if="day.remaining" class="calendar-more-events">+{{ day.remaining }}</span>
-          </button>
+          <div v-if="day.date" class="calendar-day" role="group" :data-date="day.date" :class="{ 'is-today': isToday(day.date), 'has-events': day.events.length > 0, 'is-selected': day.date === selected }" :aria-label="`${day.date}，${day.events.length} 项日程`" @click="openDay(day.date)">
+            <button type="button" class="calendar-date-number" :aria-label="day.date" :aria-pressed="day.date === selected" :aria-current="isToday(day.date) ? 'date' : undefined" @click.stop="openDay(day.date)">{{ Number(day.date.slice(-2)) }}</button>
+            <button v-for="event in day.preview" :key="event.id" type="button" class="calendar-month-event" :data-event-id="event.id" :style="{ '--event-color': eventColor(event) }" :aria-label="`查看日程 ${event.title}`" :title="event.title" @click.stop="openEvent(event, day.date)">{{ event.title }}</button>
+            <button v-if="day.remaining" type="button" class="calendar-more-events" :aria-label="`查看 ${day.date} 全部 ${day.events.length} 项日程`" @click.stop="openDay(day.date)">+{{ day.remaining }}</button>
+          </div>
           <span v-else class="calendar-empty-day" aria-hidden="true"/>
         </template>
       </div>
     </div>
 
-    <div class="calendar-day-heading">
-      <div><h3>{{ selectedTitle }}</h3><small>{{ isToday(selected) ? '今天 · ' : '' }}{{ selectedEvents.length }} 项日程</small></div>
-      <button type="button" class="calendar-add" aria-label="添加日程" :disabled="busy" @click="beginCreate"><AssistantIcon name="plus"/>新建</button>
-    </div>
-    <div v-if="selectedEvents.length" class="calendar-agenda" aria-label="当天事项">
+    <dialog ref="calendarDialog" class="calendar-dialog" aria-labelledby="calendar-popup-title" @cancel.prevent="closeEditor">
+      <template v-if="popupOpen && !editorOpen">
+        <div class="calendar-editor-heading"><div><h3 id="calendar-popup-title">{{ selectedTitle }}</h3><small>{{ isToday(selected) ? '今天 · ' : '' }}{{ selectedEvents.length }} 项日程</small></div><button type="button" class="calendar-icon-button" aria-label="关闭当天日程" :disabled="busy" @click="closeEditor"><AssistantIcon name="close"/></button></div>
+        <div v-if="selectedEvents.length" class="calendar-agenda" aria-label="当天事项">
       <article v-for="event in selectedEvents" :key="event.id" class="calendar-event" :style="{ '--event-color': eventColor(event) }">
         <time :datetime="event.start">{{ eventTime(event) }}</time>
         <span class="calendar-event-dot" aria-hidden="true"/>
-        <div class="calendar-event-copy"><b>{{ event.title }}</b><small>{{ event.source }}<template v-if="!event.allDay"> · 至 {{ new Date(event.end).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) }}</template></small></div>
+        <button type="button" class="calendar-event-copy" :aria-label="`查看日程 ${event.title}`" :disabled="busy || !data.suite.events.some(item => item.id === event.id)" @click="edit(event)"><b>{{ event.title }}</b><small>{{ event.source }}<template v-if="!event.allDay"> · 至 {{ new Date(event.end).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) }}</template></small></button>
         <div v-if="data.suite.events.some(item => item.id === event.id)" class="calendar-event-actions">
           <button type="button" class="calendar-icon-button" :aria-label="`编辑日程 ${event.title}`" title="编辑日程" :disabled="busy" @click="edit(event)"><AssistantIcon name="edit"/></button>
           <button type="button" class="calendar-icon-button" :aria-label="`删除日程 ${event.title}`" title="删除日程" :disabled="busy" @click="perform(() => api.suite.save({ events: data.suite.events.filter(item => item.id !== event.id) }))"><AssistantIcon name="recycle"/></button>
         </div>
       </article>
     </div>
-    <p v-else class="calendar-empty">这一天还没有安排，给自己留一点空白。</p>
+        <p v-else class="calendar-empty">这一天还没有安排，给自己留一点空白。</p>
+        <div class="calendar-editor-actions"><button type="button" class="calendar-add" :disabled="busy" @click="beginCreate"><AssistantIcon name="plus"/>新建日程</button></div>
+      </template>
 
-    <section v-if="editorOpen" class="calendar-editor" aria-label="日程编辑" @keydown.esc.stop.prevent="closeEditor">
-      <div class="calendar-editor-heading"><h3>{{ editingId ? '编辑日程' : '新建日程' }}</h3><button type="button" class="calendar-icon-button" aria-label="取消日程编辑" :disabled="busy" @click="closeEditor"><AssistantIcon name="close"/></button></div>
+    <section v-if="editorOpen" class="calendar-editor" aria-label="日程编辑">
+      <div class="calendar-editor-heading"><h3 id="calendar-popup-title">{{ editingId ? '编辑日程' : '新建日程' }}</h3><button type="button" class="calendar-icon-button" aria-label="取消日程编辑" :disabled="busy" @click="closeEditor"><AssistantIcon name="close"/></button></div>
       <form class="calendar-event-form" @submit.prevent="perform(save)">
         <label>事项<input ref="titleInput" v-model="title" required maxlength="120" placeholder="要做什么？" aria-label="日程名称" :disabled="busy"/></label>
         <div class="calendar-event-options"><label>类别<select v-model="category" aria-label="日程类别" :disabled="busy"><option value="personal">个人</option><option value="work">工作</option></select></label><label class="calendar-all-day"><input v-model="allDay" type="checkbox" :disabled="busy"/>全天</label></div>
@@ -179,7 +203,9 @@ onBeforeUnmount(() => { generation++; clearInterval(timer) })
         <div class="calendar-editor-actions"><button type="button" :disabled="busy" @click="closeEditor">取消</button><button type="submit" class="calendar-save" :disabled="busy">{{ busy ? '保存中…' : '保存日程' }}</button></div>
       </form>
     </section>
-    <p v-if="error" class="calendar-error" role="alert">{{ error }}</p><p v-if="busy && !editorOpen" class="hint" role="status">正在处理…</p>
+      <p v-if="error" class="calendar-error" role="alert">{{ error }}</p><p v-if="busy" class="hint" role="status">正在处理…</p>
+    </dialog>
+    <p v-if="error && !popupOpen" class="calendar-error" role="alert">{{ error }}</p><p v-if="busy && !popupOpen" class="hint" role="status">正在处理…</p>
 
     <details class="calendar-sources"><summary>日历来源与订阅</summary><button :disabled="busy" @click="perform(() => api.suite.importCalendar())">导入 ICS 文件</button>
       <form class="calendar-source-form" @submit.prevent="perform(async () => { await api.suite.subscribeCalendar(sourceName, sourceUrl); sourceName = ''; sourceUrl = '' })"><label>名称<input v-model="sourceName" required maxlength="120" placeholder="工作 / 个人日历" aria-label="订阅名称"/></label><label>地址<input v-model="sourceUrl" type="url" required placeholder="HTTPS 订阅地址" aria-label="日历订阅地址"/></label><button :disabled="busy">订阅</button></form>
@@ -190,5 +216,70 @@ onBeforeUnmount(() => { generation++; clearInterval(timer) })
 </template>
 
 <style scoped>
-.calendar-card{min-width:0}.calendar-card input,.calendar-card select,.calendar-card button{box-sizing:border-box}.calendar-card svg{width:16px;height:16px;flex-shrink:0}.calendar-monthbar{display:flex;align-items:center;gap:6px;margin-bottom:8px}.calendar-monthbar input{min-width:0;width:0;font-size:14px;font-weight:600;background:transparent;border-color:transparent;padding-left:2px}.calendar-card .calendar-icon-button{display:grid;place-items:center;width:28px;min-height:28px;height:28px;flex:0 0 28px;padding:0;border:0;background:transparent;border-radius:8px}.calendar-card .calendar-today{min-height:28px;padding:3px 9px;font-size:11px;background:transparent}.calendar-month-scroll{max-height:352px;overflow:auto;scrollbar-width:thin;scrollbar-color:#b6c7bd55 transparent;border:1px solid var(--widget-line,#ffffff24);border-radius:10px}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:21px;grid-auto-rows:62px;gap:2px;padding:3px;text-align:center}.calendar-grid>small{position:sticky;top:0;z-index:2;height:21px;padding:0;font-size:10px;line-height:21px;color:#bdcbc3;background:var(--widget-background,#232729)}.calendar-card .calendar-grid>.calendar-day{display:flex;flex-direction:column;align-items:stretch;gap:2px;position:relative;min-width:0;min-height:62px;height:62px;max-width:100%;padding:3px 2px;border:1px solid transparent;border-radius:6px;background:#12201936;text-align:left;font-variant-numeric:tabular-nums;overflow:hidden}.calendar-grid>.calendar-day:hover{background:#a4dbb612}.calendar-grid>.calendar-day[aria-pressed=true]{background:#a4dbb614;border-color:#a4dbb65e;color:inherit}.calendar-date-number{display:grid;place-items:center;align-self:flex-start;flex:0 0 16px;width:18px;height:16px;border-radius:6px;font-size:10px;line-height:16px;color:#e4eee7}.calendar-day.is-today .calendar-date-number{color:#c7f0d8;box-shadow:inset 0 0 0 1px #a4dbb65c}.calendar-day[aria-pressed=true] .calendar-date-number{background:#b8e1ca;color:#172d21;font-weight:600}.calendar-month-event{display:block;flex:0 0 11px;min-width:0;max-width:100%;height:11px;padding:0 2px;border-radius:3px;background:var(--event-color);color:#13231c;font-size:9px;line-height:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.calendar-more-events{height:9px;font-size:8px;line-height:9px;color:#c5d3cb}.calendar-empty-day{min-width:0;border-radius:6px;background:#12201918}.calendar-day-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:8px;border-top:1px solid var(--widget-line,#ffffff24)}.calendar-day-heading h3,.calendar-editor h3{margin:0;font-size:13px;font-weight:600;line-height:1.5}.calendar-day-heading small{font-size:10px}.calendar-card .calendar-add{display:flex;align-items:center;gap:3px;padding:3px 8px;min-height:28px;background:#a4dbb61c;border-color:#a4dbb63d;font-size:11px}.calendar-empty{margin:16px 0 20px;font-size:12px;line-height:1.6;color:#bdcbc3}.calendar-agenda{display:grid;gap:4px;padding:8px 0 4px}.calendar-event{display:grid;grid-template-columns:38px 5px minmax(0,1fr) auto;align-items:start;gap:8px;padding:10px 5px;border-radius:9px;background:color-mix(in srgb,var(--event-color) 7%,transparent)}.calendar-event time{font-size:10px;line-height:19px;color:#d4e0d9;font-variant-numeric:tabular-nums}.calendar-event-dot{width:5px;height:5px;border-radius:50%;margin-top:7px;background:var(--event-color)}.calendar-event-copy{display:grid;gap:3px;min-width:0}.calendar-event-copy b{font-size:12px;line-height:19px;font-weight:500;overflow-wrap:anywhere}.calendar-event-copy small{font-size:10px;line-height:1.5}.calendar-event-actions{display:flex;gap:1px}.calendar-event-actions .calendar-icon-button{width:23px;height:26px;min-height:26px;flex-basis:23px;color:#bfcec5}.calendar-event-actions svg{width:13px;height:13px}.calendar-editor{margin-top:14px;padding:12px;border:1px solid var(--widget-line,#ffffff30);border-radius:12px;background:#15231c7a}.calendar-editor-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.calendar-card .calendar-event-form,.calendar-card .calendar-source-form{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:0}.calendar-event-form>label,.calendar-source-form>label{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;font-size:11px}.calendar-event-form input,.calendar-event-form select,.calendar-source-form input{width:100%;min-width:0;max-width:100%;font-size:12px}.calendar-event-options{display:flex;align-items:center;gap:12px}.calendar-event-options>label:first-child{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;min-width:0;flex:1;font-size:11px}.calendar-event-options select{min-width:0}.calendar-all-day{flex:0 0 auto;font-size:11px;white-space:nowrap}.calendar-event-form .calendar-all-day input{width:14px;height:14px;min-height:14px;max-width:14px;flex:0 0 14px;margin:0;padding:0}.calendar-colors{display:flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;margin:0}.calendar-colors legend{float:left;font-size:11px;margin-right:6px;padding-top:5px}.calendar-colors button{display:grid;place-items:center;width:24px;height:24px;min-height:24px;padding:3px;border:2px solid transparent;border-radius:50%;background:var(--event-color);color:#14251c}.calendar-colors button[aria-pressed=true]{background:var(--event-color);border-color:#f4f7f6;color:#14251c}.calendar-colors svg{width:14px;height:14px}.calendar-editor-actions{display:flex;justify-content:flex-end;gap:6px;padding-top:2px}.calendar-editor-actions button{font-size:11px;min-height:30px;padding:4px 12px}.calendar-editor-actions .calendar-save{background:#b8e1ca;border-color:#b8e1ca;color:#172d21}.calendar-error{margin:10px 0 0}.calendar-sources{padding-top:14px;margin-top:14px;border-top:1px solid var(--widget-line,#ffffff24)}.calendar-sources>summary{cursor:pointer;font-size:11px;color:#c5d3cb;margin-bottom:10px}.calendar-source-form{padding-top:12px}.calendar-sources .entry small{display:block;margin:5px 0 8px}@media(max-width:320px){.calendar-event{grid-template-columns:34px 4px minmax(0,1fr) auto;gap:6px}.calendar-editor{padding:10px}.calendar-colors{gap:5px}.calendar-colors button{width:22px;height:22px;min-height:22px}.calendar-event-form>label{grid-template-columns:28px minmax(0,1fr)}}
+.calendar-card{min-width:0}
+.calendar-dialog{box-sizing:border-box;width:min(360px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);margin:auto;padding:16px;overflow:auto;border:1px solid #9db9a84d;border-radius:16px;background:#24302b;color:#e4eee7;box-shadow:0 18px 60px #0008}
+.calendar-dialog::backdrop{background:#07110c99}
+.calendar-card input,.calendar-card select,.calendar-card button{box-sizing:border-box}
+.calendar-card svg{width:16px;height:16px;flex-shrink:0}
+.calendar-monthbar{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.calendar-monthbar input{min-width:0;width:0;font-size:14px;font-weight:600;background:transparent;border-color:transparent;padding-left:2px}
+.calendar-card .calendar-icon-button{display:grid;place-items:center;width:28px;min-height:28px;height:28px;flex:0 0 28px;padding:0;border:0;background:transparent;border-radius:8px}
+.calendar-card .calendar-today{min-height:28px;padding:3px 9px;font-size:11px;background:transparent}
+.calendar-month-scroll{max-height:352px;overflow:auto;scrollbar-width:thin;scrollbar-color:#b6c7bd55 transparent;border:1px solid var(--widget-line,#ffffff24);border-radius:10px}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:21px;grid-auto-rows:62px;gap:2px;padding:3px;text-align:center}
+.calendar-grid>small{position:sticky;top:0;z-index:2;height:21px;padding:0;font-size:10px;line-height:21px;color:#bdcbc3;background:var(--widget-background,#232729)}
+.calendar-card .calendar-grid>.calendar-day{display:flex;flex-direction:column;align-items:stretch;gap:2px;position:relative;min-width:0;min-height:62px;height:62px;max-width:100%;padding:3px 2px;border:1px solid transparent;border-radius:6px;background:#12201936;text-align:left;font-variant-numeric:tabular-nums;overflow:hidden}
+.calendar-grid>.calendar-day:hover{background:#a4dbb612}
+.calendar-grid>.calendar-day.is-selected{background:#a4dbb614;border-color:#a4dbb65e;color:inherit}
+.calendar-card .calendar-date-number{display:grid;place-items:center;align-self:flex-start;flex:0 0 16px;width:18px;height:16px;min-height:16px;padding:0;border:0;background:transparent;border-radius:6px;font-size:10px;line-height:16px;color:#e4eee7}
+.calendar-card .calendar-day.is-today .calendar-date-number{color:#c7f0d8;box-shadow:inset 0 0 0 1px #a4dbb65c}
+.calendar-card .calendar-day.is-selected .calendar-date-number{background:#b8e1ca;color:#172d21;font-weight:600}
+.calendar-card .calendar-month-event{display:block;flex:0 0 11px;min-width:0;max-width:100%;height:11px;min-height:11px;padding:0 2px;border:0;text-align:left;border-radius:3px;background:var(--event-color);color:#13231c;font-size:9px;line-height:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.calendar-card .calendar-more-events{height:9px;min-height:9px;padding:0;border:0;background:transparent;text-align:left;font-size:8px;line-height:9px;color:#c5d3cb}
+.calendar-empty-day{min-width:0;border-radius:6px;background:#12201918}
+.calendar-dialog h3{margin:0;font-size:14px;font-weight:600;line-height:1.5}
+.calendar-dialog small{font-size:10px}
+.calendar-card .calendar-add{display:flex;align-items:center;gap:3px;padding:3px 8px;min-height:28px;background:#a4dbb61c;border-color:#a4dbb63d;font-size:11px}
+.calendar-empty{margin:16px 0 20px;font-size:12px;line-height:1.6;color:#bdcbc3}
+.calendar-agenda{display:grid;gap:4px;padding:8px 0 4px}
+.calendar-event{display:grid;grid-template-columns:38px 5px minmax(0,1fr) auto;align-items:start;gap:8px;padding:10px 5px;border-radius:9px;background:color-mix(in srgb,var(--event-color) 7%,transparent)}
+.calendar-event time{font-size:10px;line-height:19px;color:#d4e0d9;font-variant-numeric:tabular-nums}
+.calendar-event-dot{width:5px;height:5px;border-radius:50%;margin-top:7px;background:var(--event-color)}
+.calendar-card .calendar-event-copy{display:grid;gap:3px;min-width:0;padding:0;border:0;background:transparent;text-align:left;color:inherit}
+.calendar-event-copy:disabled{opacity:1;cursor:default}
+.calendar-event-copy b{font-size:12px;line-height:19px;font-weight:500;overflow-wrap:anywhere}
+.calendar-event-copy small{font-size:10px;line-height:1.5}
+.calendar-event-actions{display:flex;gap:1px}
+.calendar-event-actions .calendar-icon-button{width:23px;height:26px;min-height:26px;flex-basis:23px;color:#bfcec5}
+.calendar-event-actions svg{width:13px;height:13px}
+.calendar-editor{min-width:0}
+.calendar-editor-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calendar-card .calendar-event-form,.calendar-card .calendar-source-form{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:0}
+.calendar-event-form>label,.calendar-source-form>label{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;font-size:11px}
+.calendar-event-form input,.calendar-event-form select,.calendar-source-form input{width:100%;min-width:0;max-width:100%;font-size:12px}
+.calendar-event-options{display:flex;align-items:center;gap:12px}
+.calendar-event-options>label:first-child{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;min-width:0;flex:1;font-size:11px}
+.calendar-event-options select{min-width:0}
+.calendar-all-day{flex:0 0 auto;font-size:11px;white-space:nowrap}
+.calendar-event-form .calendar-all-day input{width:14px;height:14px;min-height:14px;max-width:14px;flex:0 0 14px;margin:0;padding:0}
+.calendar-colors{display:flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;margin:0}
+.calendar-colors legend{float:left;font-size:11px;margin-right:6px;padding-top:5px}
+.calendar-colors button{display:grid;place-items:center;width:24px;height:24px;min-height:24px;padding:3px;border:2px solid transparent;border-radius:50%;background:var(--event-color);color:#14251c}
+.calendar-colors button[aria-pressed=true]{background:var(--event-color);border-color:#f4f7f6;color:#14251c}
+.calendar-colors svg{width:14px;height:14px}
+.calendar-editor-actions{display:flex;justify-content:flex-end;gap:6px;padding-top:2px}
+.calendar-editor-actions button{font-size:11px;min-height:30px;padding:4px 12px}
+.calendar-editor-actions .calendar-save{background:#b8e1ca;border-color:#b8e1ca;color:#172d21}
+.calendar-error{margin:10px 0 0}
+.calendar-sources{padding-top:14px;margin-top:14px;border-top:1px solid var(--widget-line,#ffffff24)}
+.calendar-sources>summary{cursor:pointer;font-size:11px;color:#c5d3cb;margin-bottom:10px}
+.calendar-source-form{padding-top:12px}
+.calendar-sources .entry small{display:block;margin:5px 0 8px}
+@media(max-width:320px){.calendar-event{grid-template-columns:34px 4px minmax(0,1fr) auto;gap:6px}
+.calendar-dialog{padding:12px}
+.calendar-colors{gap:5px}
+.calendar-colors button{width:22px;height:22px;min-height:22px}
+.calendar-event-form>label{grid-template-columns:28px minmax(0,1fr)}
+}
+
 </style>

@@ -1021,9 +1021,39 @@ async function calendarEditor() {
   const component = context.exports.default
   let state
   await renderToString(vue.createSSRApp({ props: component.props, setup(currentProps, setupContext) { state = component.setup(currentProps, setupContext); return () => null } }, props))
+  const popup = { open: false, shown: 0, closed: 0, focused: 0,
+    showModal() { this.open = true; this.shown++ }, close() { this.open = false; this.closed++ } }
+  state.calendarDialog.value = popup
+  state.titleInput.value = { focus: () => { popup.focused++ } }
   await state.refresh()
-  return { props, calls, state, failNextSave: () => { rejectSave = true } }
+  return { props, calls, state, popup, failNextSave: () => { rejectSave = true } }
 }
+
+test('calendar dates and events open a modal without modifying data; cancel and busy preserve save boundaries', async () => {
+  const { state, props, popup, calls } = await calendarEditor()
+  const day = state.selected.value
+  await state.openDay(day)
+  assert.equal(popup.open, true); assert.equal(state.popupOpen.value, true)
+  assert.equal(state.editorOpen.value, false)
+  await state.beginCreate()
+  assert.equal(popup.shown, 1); assert.equal(popup.focused, 1)
+  state.title.value = '取消的新建'
+  state.busy.value = true; state.closeEditor(); await state.openDay('2026-12-01')
+  assert.equal(popup.open, true); assert.equal(state.selected.value, day)
+  state.busy.value = false; state.closeEditor()
+  assert.equal(popup.open, false); assert.equal(state.popupOpen.value, false)
+  assert.equal(calls.length, 0); assert.equal(props.data.suite.events.length, 0)
+
+  const local = { id: 'local', title: '原事项', start: new Date(`${day}T09:00`).toISOString(), end: new Date(`${day}T10:00`).toISOString(), allDay: false, category: 'work' }
+  props.data.suite.events = [local]; await state.refresh()
+  await state.openEvent({ ...local, source: '工作' }, day)
+  assert.equal(state.editorOpen.value, true); assert.equal(state.title.value, '原事项')
+  state.title.value = '取消的修改'; state.closeEditor()
+  assert.equal(props.data.suite.events[0].title, '原事项'); assert.equal(calls.length, 0)
+  await state.openEvent({ ...local, id: 'subscription', source: '订阅' }, day)
+  assert.equal(popup.open, true); assert.equal(state.editorOpen.value, false)
+  state.closeEditor(); assert.equal(popup.open, false)
+})
 
 test('calendar editor creates distinct colors, preserves all-day boundaries and retries a failed edit without losing its draft', async () => {
   const editor = await calendarEditor(), { state, props, calls } = editor

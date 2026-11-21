@@ -154,17 +154,20 @@ try {
     ['阅读复盘', '20:00', '21:00', '淡紫']
   ]) {
     await assistant(`document.querySelector('[aria-label="添加日程"]').click()`)
-    await until(() => assistant(`Boolean(document.querySelector('.calendar-event-form'))`))
+    await until(() => assistant(`document.querySelector('.calendar-dialog')?.matches(':modal') && Boolean(document.querySelector('.calendar-event-form'))`))
     await fill(assistant, '[aria-label="日程名称"]', name)
     await fill(assistant, '[aria-label="日程开始时间"]', `${today}T${start}`)
     await fill(assistant, '[aria-label="日程结束时间"]', `${today}T${end}`)
     await assistant(`document.querySelector('[aria-label="日程颜色：${color}"]').click();document.querySelector('.calendar-event-form').requestSubmit()`)
-    await until(() => assistant(`!document.querySelector('.calendar-editor') && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title===${JSON.stringify(name)}))`))
+    await until(() => assistant(`!document.querySelector('.calendar-dialog').open && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title===${JSON.stringify(name)}))`))
   }
+  await assistant(`document.querySelector('.calendar-date-number[aria-label="${today}"]').click()`)
   await until(() => assistant(`document.querySelectorAll('.calendar-event').length===3`))
   const calendar = await assistant(`(() => {const rows=[...document.querySelectorAll('.calendar-event')];return {today:document.querySelector('.calendar-grid [aria-current=date]').getAttribute('aria-label'),colors:rows.map(row=>getComputedStyle(row).getPropertyValue('--event-color').trim()),names:rows.map(row=>row.querySelector('b').textContent)}})()`)
   assert.equal(calendar.today, today)
   assert.equal(new Set(calendar.colors).size, 3)
+  await assistant(`document.querySelector('[aria-label="关闭当天日程"]').click()`)
+  await until(() => assistant(`!document.querySelector('.calendar-dialog').open`))
   const examples = [3,8,16,25,28].filter(day=>day!==new Date().getDate()).slice(0,4).map((day,index)=>{
     const date=today.slice(0,8)+String(day).padStart(2,'0')
     return {id:'month-example-'+day,title:['整理账单','周末采购','项目讨论','读书计划'][index],start:new Date(date+'T10:00:00').toISOString(),end:new Date(date+'T11:00:00').toISOString(),allDay:false,category:'personal',color:['#e7b37b','#8ab9f1','#86d6cd','#eea1b6'][index]}
@@ -180,18 +183,22 @@ try {
   }
   await resize(420)
   await assistant(`document.querySelector('.suite-content').scrollTo(0,0)`)
-  report.calendarAgenda = await assistant(`(() => {const content=document.querySelector('.suite-content').getBoundingClientRect();return {width:innerWidth,height:innerHeight,viewportBottom:content.bottom,rows:[...document.querySelectorAll('.calendar-event')].map(node=>({top:node.getBoundingClientRect().top,bottom:node.getBoundingClientRect().bottom}))}})()`)
+  report.calendarAgenda = await assistant(`(() => {const content=document.querySelector('.suite-content'),card=document.querySelector('.calendar-card');return {width:innerWidth,height:innerHeight,cardHeight:card.getBoundingClientRect().height,contentHeight:content.scrollHeight,inlineAgenda:Boolean(card.querySelector('.calendar-agenda')),dialogOpen:document.querySelector('.calendar-dialog').open}})()`)
+  assert.equal(report.calendarAgenda.inlineAgenda, false)
+  assert.equal(report.calendarAgenda.dialogOpen, false)
   await resize(420, 720)
   await screenshot(assistantPage, assistant, 'calendar-agenda.png')
+  await assistant(`document.querySelector('.calendar-date-number[aria-label="${today}"]').click()`)
+  await until(() => assistant(`document.querySelector('.calendar-dialog')?.matches(':modal') && Boolean(document.querySelector('[aria-label="编辑日程 阅读复盘"]'))`))
   await assistant(`document.querySelector('[aria-label="编辑日程 阅读复盘"]').click()`)
   await until(() => assistant(`Boolean(document.querySelector('.calendar-editor'))`))
   await fill(assistant, '[aria-label="日程名称"]', '阅读与复盘')
-  await assistant(`document.querySelector('.calendar-editor').scrollIntoView({block:'start'})`)
   report.calendarEditors = []
   for (const width of [300, 420]) {
     await resize(width)
-    await assistant(`document.querySelector('.calendar-editor').scrollIntoView({block:'start'})`)
-    const form = await assistant(`(() => {const editor=document.querySelector('.calendar-editor'),fields=[...document.querySelectorAll('.calendar-event-form>label')].map(node=>node.getBoundingClientRect());return {windowWidth:innerWidth,vertical:fields.every((field,index)=>index===0||field.top>=fields[index-1].bottom),overflow:editor.scrollWidth>editor.clientWidth,checkboxWidth:editor.querySelector('input[type=checkbox]').getBoundingClientRect().width,width:editor.clientWidth,scrollWidth:editor.scrollWidth,controls:[...editor.querySelectorAll('input,select,button')].map(input=>({label:input.getAttribute('aria-label')||input.textContent,clientWidth:input.clientWidth,width:input.getBoundingClientRect().width,right:input.getBoundingClientRect().right,boxSizing:getComputedStyle(input).boxSizing}))}})()`)
+    const form = await assistant(`(() => {const dialog=document.querySelector('.calendar-dialog'),editor=document.querySelector('.calendar-editor'),bounds=dialog.getBoundingClientRect(),fields=[...document.querySelectorAll('.calendar-event-form>label')].map(node=>node.getBoundingClientRect());return {windowWidth:innerWidth,modal:dialog.matches(':modal'),insideViewport:bounds.left>=0 && bounds.right<=innerWidth && bounds.top>=0 && bounds.bottom<=innerHeight,vertical:fields.every((field,index)=>index===0||field.top>=fields[index-1].bottom),overflow:dialog.scrollWidth>dialog.clientWidth || editor.scrollWidth>editor.clientWidth,checkboxWidth:editor.querySelector('input[type=checkbox]').getBoundingClientRect().width,width:editor.clientWidth,scrollWidth:editor.scrollWidth,controls:[...editor.querySelectorAll('input,select,button')].map(input=>({label:input.getAttribute('aria-label')||input.textContent,clientWidth:input.clientWidth,width:input.getBoundingClientRect().width,right:input.getBoundingClientRect().right,boxSizing:getComputedStyle(input).boxSizing}))}})()`)
+    assert.equal(form.modal, true)
+    assert.equal(form.insideViewport, true)
     assert.equal(form.vertical, true)
     assert.ok(Math.abs(form.checkboxWidth - 14) < 1)
     report.calendarEditors.push(form)
@@ -199,8 +206,8 @@ try {
   }
   await screenshot(assistantPage, assistant, 'calendar-editor.png')
   await assistant(`document.querySelector('.calendar-event-form').requestSubmit()`)
-  await until(() => assistant(`!document.querySelector('.calendar-editor') && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title==='阅读与复盘' && item.color==='#cbacf0'))`))
-  check('calendar creates and edits three real events for today with three persisted colors and a vertical editor')
+  await until(() => assistant(`!document.querySelector('.calendar-dialog').open && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title==='阅读与复盘' && item.color==='#cbacf0'))`))
+  check('calendar saves three real colored events; dates and event titles open modal popups with no inline agenda or narrow-window overflow')
 
   await tool('countdown')
   await until(() => assistant(`Boolean(document.querySelector('.holiday-grid'))`))

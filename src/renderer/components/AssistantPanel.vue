@@ -39,7 +39,7 @@ async function toggleCollapsed() {
 function keydown(event: KeyboardEvent) {
   if(event.defaultPrevented)return
   if(event.key==='Escape' && settingsOpen.value){event.preventDefault();settingsOpen.value=false;return}
-  if (event.key === 'Escape' && !(event.target instanceof Element && event.target.closest('input,textarea,select,[popover],[role=dialog],.health-popover'))) void api.suite.visibility('closeOverlay')
+  if (event.key === 'Escape' && !(event.target instanceof Element && event.target.closest('input,textarea,select,dialog,[popover],[role=dialog],.health-popover'))) void api.suite.visibility('closeOverlay')
 }
 function selectTool(id: typeof active.value) { reminderId.value = ''; active.value = id }
 function navigate(event: KeyboardEvent, index: number) {
