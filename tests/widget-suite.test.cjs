@@ -54,6 +54,27 @@ test('focus resumes after restart, pauses exactly and reaches zero without reset
   assert.equal(initial.endAt,null)
 })
 
+test('focus remaining never exceeds the seconds recorded at start or resume when the display clock is stale',()=>{
+  const initial=suite.defaultSuite().focus
+  const running=suite.changeFocus(initial,'start',100300,1500)
+  assert.equal(suite.focusRemaining(running,100000),1500)
+  assert.equal(suite.focusRemaining(running,100299),1500)
+  assert.equal(suite.focusRemaining(running,100301),1500)
+  assert.equal(suite.focusRemaining(running,101300),1499)
+  const paused=suite.changeFocus(running,'pause',172550)
+  assert.equal(paused.remainingSeconds,1428)
+  assert.equal(suite.focusRemaining(paused,250000),1428)
+  const resumed=suite.changeFocus(paused,'start',252800)
+  assert.equal(suite.focusRemaining(resumed,252000),1428)
+  assert.equal(suite.focusRemaining(resumed,253800),1427)
+  assert.equal(suite.focusRemaining(JSON.parse(JSON.stringify(resumed)),resumed.endAt-1),1)
+  assert.equal(suite.focusRemaining(resumed,resumed.endAt),0)
+  assert.equal(suite.focusRemaining(resumed,resumed.endAt+1000),0)
+  const short=suite.changeFocus(initial,'start',500,1)
+  assert.equal(suite.focusRemaining(short,499),1)
+  assert.equal(suite.focusRemaining(short,1500),0)
+})
+
 test('built-in holidays use verified lunar and Qingming dates rather than system lunar estimates',()=>{
   const upcoming=holidays.holidayCountdowns('2027-01-01')
   const expected={元旦:'2027-01-01',除夕:'2027-02-05',春节:'2027-02-06',元宵节:'2027-02-20',清明节:'2027-04-05',劳动节:'2027-05-01',端午节:'2027-06-09',七夕节:'2027-08-08',中秋节:'2027-09-15',国庆节:'2027-10-01',重阳节:'2027-10-08'}

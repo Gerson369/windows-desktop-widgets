@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, useId } from 'vue'
 import { toolbox } from '../../toolbox'
 import type { AppData } from '../../../main/types'
 import { dateKey, daysUntil, focusRemaining } from '../../../main/widget-suite'
+import type { Countdown } from '../../../main/widget-suite'
 import { holidayCountdowns, hasVerifiedHolidayDates, holidayCalendarSource, holidayCalendarRange } from '../../../main/holiday-countdowns'
 import AssistantIcon from '../AssistantIcon.vue'
 
 const props = defineProps<{ data: AppData; kind: 'clock' | 'countdown' | 'focus' }>()
 const api = toolbox
 const editingCountdown = ref('')
+const countdownMenu = ref<HTMLElement | null>(null), menuDate = ref<Countdown | null>(null)
+const countdownTitleInput = ref<HTMLInputElement | null>(null), countdownMenuId = useId()
+const menuPosition = ref({ left: '8px', top: '8px' })
 const now = ref(Date.now()), zone = ref(''), title = ref(''), date = ref(dateKey(Date.now()))
 const minutes = ref(Math.round(props.data.suite.focus.durationSeconds / 60)), error = ref(''), pending = ref(false)
 const allHolidays = ref(false)
@@ -36,6 +40,29 @@ async function addDate() {
   await api.suite.save({ countdowns: [...props.data.suite.countdowns.filter(item => item.id !== editingCountdown.value), { id: editingCountdown.value || crypto.randomUUID(), title: title.value.trim(), date: date.value }] })
   title.value = ''; editingCountdown.value = ''
 }
+function prepareDateMenu(item: Countdown, event: MouseEvent) {
+  // Let the native toggle reopen the shared popover when switching cards.
+  if (menuDate.value?.id !== item.id && countdownMenu.value?.matches(':popover-open')) countdownMenu.value.hidePopover()
+  menuDate.value = item
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  menuPosition.value = {
+    left: `${Math.max(8, Math.min(box.right - 120, innerWidth - 128))}px`,
+    top: `${Math.max(8, Math.min(box.bottom + 4, innerHeight - 80))}px`
+  }
+}
+function focusDateMenu(event: Event) {
+  if ((event as ToggleEvent).newState === 'open') countdownMenu.value?.querySelector('button')?.focus()
+}
+async function editDate(item: Countdown) {
+  editingCountdown.value = item.id; title.value = item.title; date.value = item.date
+  countdownMenu.value?.hidePopover()
+  await nextTick(); countdownTitleInput.value?.focus()
+}
+async function removeDate(item: Countdown) {
+  await api.suite.save({ countdowns: props.data.suite.countdowns.filter(date => date.id !== item.id) })
+  countdownMenu.value?.hidePopover()
+  await nextTick(); countdownTitleInput.value?.focus()
+}
 function time(timeZone: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now.value) }
 function day(timeZone: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone, month: 'long', day: 'numeric', weekday: 'short' }).format(now.value) }
 onMounted(() => { timer = setInterval(() => { now.value = Date.now() }, 1000) })
@@ -55,14 +82,18 @@ onBeforeUnmount(() => clearInterval(timer))
     <div class="time-section-heading"><h3>我的日期 <small>{{ countdowns.length }}</small></h3><AssistantIcon name="countdown"/></div>
     <div v-if="countdowns.length" class="countdown-list">
       <article v-for="item in countdowns" :key="item.id" class="countdown-item" :class="{ 'is-today': item.days === 0, 'is-past': item.days < 0 }">
-        <div class="countdown-copy"><b :title="item.title">{{ item.title }}</b><small>{{ item.date }}</small></div>
+        <b :title="item.title">{{ item.title }}</b>
         <strong class="countdown-days">{{ item.days === 0 ? '今天' : Math.abs(item.days) }}<span v-if="item.days !== 0">{{ item.days > 0 ? '天后' : '天前' }}</span></strong>
-        <div class="countdown-actions"><button class="countdown-action time-icon-button" :aria-label="`编辑日期 ${item.title}`" :disabled="pending" @click="editingCountdown = item.id; title = item.title; date = item.date"><AssistantIcon name="edit"/></button><button class="countdown-action time-icon-button" :aria-label="`删除日期 ${item.title}`" :disabled="pending" @click="perform(() => api.suite.save({ countdowns: data.suite.countdowns.filter(date => date.id !== item.id) }))"><AssistantIcon name="close"/></button></div>
+        <small>{{ item.date }}</small>
+        <button type="button" class="countdown-more time-icon-button" :aria-label="`${item.title}的更多操作`" title="更多操作" :popovertarget="countdownMenuId" :disabled="pending" @click="prepareDateMenu(item, $event)"><AssistantIcon name="more"/></button>
       </article>
     </div>
     <p v-else class="time-empty">记下生日、纪念日或下一次出发的日子。</p>
+    <div :id="countdownMenuId" ref="countdownMenu" popover="auto" class="countdown-menu" role="group" aria-label="日期操作" :style="menuPosition" @toggle="focusDateMenu" @keydown.esc.stop>
+      <template v-if="menuDate"><button type="button" :aria-label="`编辑日期 ${menuDate.title}`" :disabled="pending" @click="editDate(menuDate)"><AssistantIcon name="edit"/>编辑</button><button type="button" :aria-label="`删除日期 ${menuDate.title}`" :disabled="pending" @click="perform(() => removeDate(menuDate!))"><AssistantIcon name="recycle"/>删除</button></template>
+    </div>
     <form class="countdown-form" @submit.prevent="perform(addDate)">
-      <input v-model="title" required maxlength="120" aria-label="重要日期名称" placeholder="添加一个重要日子"/>
+      <input ref="countdownTitleInput" v-model="title" required maxlength="120" aria-label="重要日期名称" placeholder="添加一个重要日子"/>
       <div><input v-model="date" type="date" required aria-label="重要日期"/><button v-if="editingCountdown" class="time-icon-button" type="button" aria-label="取消编辑日期" :disabled="pending" @click="editingCountdown = ''; title = ''"><AssistantIcon name="close"/></button><button class="time-primary" :disabled="pending">{{ editingCountdown ? '保存' : '添加日期' }}</button></div>
     </form>
     <div class="time-section-heading holiday-heading"><h3>即将到来的节日</h3><button v-if="holidays.length > 6" class="time-text-button" :aria-expanded="allHolidays" aria-controls="holiday-grid" @click="allHolidays = !allHolidays">{{ allHolidays ? '收起' : '查看全部节日' }}<AssistantIcon :name="allHolidays ? 'collapse' : 'expand'"/></button></div>
@@ -98,12 +129,15 @@ onBeforeUnmount(() => clearInterval(timer))
 .countdown-list,.holiday-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .countdown-item,.holiday-card{position:relative;display:flex;flex-direction:column;gap:2px;min-width:0;padding:5px 6px;border:1px solid #c1dfcc24;border-radius:12px;background:#c1dfcc08}
 .countdown-item{min-height:0}
-.countdown-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
-.countdown-copy b,.holiday-card>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:500;line-height:14px}
-.countdown-copy small,.holiday-card>small{font-size:9px;line-height:11px;color:#b7c6bf;font-variant-numeric:tabular-nums}
+.countdown-item>b,.holiday-card>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:500;line-height:14px}
+.countdown-item>b{padding-right:16px}
+.countdown-item>small,.holiday-card>small{font-size:9px;line-height:11px;color:#b7c6bf;font-variant-numeric:tabular-nums}
 .countdown-days{display:flex;align-items:baseline;gap:2px;font-size:18px;font-weight:500;line-height:22px;color:#bde4cc;font-variant-numeric:tabular-nums;white-space:nowrap}
 .countdown-days span{font-size:9px;font-weight:400;color:#bacdc1}
-.countdown-actions{display:flex;justify-content:flex-end;gap:0;margin-top:0}.countdown-actions .time-icon-button{width:24px;height:24px;padding:5px}.countdown-actions svg{width:12px;height:12px}
+.time-panel .countdown-more{position:absolute;top:3px;right:3px;width:18px;height:18px;min-height:18px;padding:1px}.countdown-more svg{width:12px;height:12px}
+.countdown-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;width:120px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:4px;border:1px solid #718b78;border-radius:8px;background:#25342c;color:#f4f7f6;font:11px 'Microsoft YaHei UI',sans-serif}
+.countdown-menu::backdrop{background:transparent}
+.time-panel .countdown-menu button{display:flex;align-items:center;gap:6px;width:100%;min-height:28px;padding:5px 8px;border:0;background:transparent;text-align:left;font:inherit;color:inherit}.countdown-menu svg{width:14px;height:14px}.time-panel .countdown-menu button:hover{background:#ffffff14}
 .is-today{border-color:#c4e9d063;background:#b7ddc514}
 .is-past .countdown-days{color:#c1cbc5}
 .time-empty{margin:0;padding:10px 0 4px;font-size:11px;line-height:1.6;color:#bacbc1}

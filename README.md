@@ -4,9 +4,9 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.8.2 · MIT 开源**
+**Windows 10 / 11 x64 · v2.8.3 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.2) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.3) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 <table>
   <tr>
@@ -15,14 +15,14 @@
   </tr>
 </table>
 
-本页设置与收纳截图来自 v2.8.2，当天清单来自 v2.8.1，其他界面来自 v2.8.0 的实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；桌面面板的时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。外观设置中的时钟和文件是界面已标明的效果预览样例。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
+专注计时与倒数日截图来自 v2.8.3；本页设置与收纳截图来自 v2.8.2，当天清单来自 v2.8.1，其他界面来自 v2.8.0 的实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；桌面面板的时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。外观设置中的时钟和文件是界面已标明的效果预览样例。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
 
-## v2.8.2 更新
+## v2.8.3 更新
 
-- **设置更紧凑**：减少重复标题、卡片留白和行间距；外观预览在窄窗口也保持两个小面板并排，常用颜色和字号设置更容易找到。
-- **桌面分组始终可见**：组件、收纳、备份和数据标签固定在滚动区外，滚动时也能完整点击。
-- **分区每项一行**：名称、数量、开关和更多操作并排显示，说明放在完整一行，避免窄窗口里反复换行。
-- **收纳框缩小间距**：保留三列和32px图标，缩小卡片留白；搜索清除按钮固定在输入框同一排。
+- **个人倒数日与节日同样大小**：卡片统一为标题、天数、日期三行；编辑与删除收进右上角“更多”菜单，不再额外占一行。
+- **专注开始不再多显示一秒**：25分钟从25:00开始，恢复计时也不会比暂停前多出一秒。
+- **完成通知按截止时间判断**：只有本轮保存的截止时间已到才触发完成通知；自动化验收的通知只写入独立测试日志，避免打扰实际使用。
+- **保留原有计时规则**：仍按保存的截止时间倒计时，支持暂停、继续、重置和重启后恢复；修复不改变已设置的时长。
 
 ## 它能帮你做什么
 
@@ -47,9 +47,9 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/windows-desktop-widgets-2.8.2-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/windows-desktop-widgets-2.8.2-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.2/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.3/windows-desktop-widgets-2.8.3-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.3/windows-desktop-widgets-2.8.3-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.3/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
@@ -62,7 +62,7 @@
 <table>
   <tr>
     <td width="50%" valign="top"><strong>待办：记下一件事，安排时间，再逐项完成</strong><br /><a href="docs/images/v2.8.0/todos.png"><img src="docs/images/v2.8.0/todos.png" alt="实际运行的待办界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.8.0/countdown.png"><img src="docs/images/v2.8.0/countdown.png" alt="实际运行的倒数日界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.8.3/countdown.png"><img src="docs/images/v2.8.3/countdown.png" alt="实际运行的倒数日界面" width="360" /></a></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><strong>事项详情：底部浮窗展示时间、地点和备注</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="实际运行的事项详情界面" width="360" /></a></td>
@@ -82,7 +82,7 @@
   </tr>
 </table>
 
-组件显隐、显示器选择和桌面行为集中在[组件设置](docs/images/v2.8.2/settings-components.png)。
+组件显隐、显示器选择和桌面行为集中在[组件设置](docs/images/v2.8.2/settings-components.png)。[专注计时实际界面](docs/images/v2.8.3/focus.png)展示正常开始后的25:00。
 
 ## 喝水量怎么算
 
@@ -95,6 +95,8 @@
 图示只基于计时，不检测真实坐姿或饮水；饮水目标由你设置，分配结果不是个体饮水建议。
 
 ## 节日与日历说明
+
+个人倒数日和节日卡片大小一致，均为三列；点击个人日期右上角“更多”可编辑或删除。
 
 内置节日资料覆盖 **2026–2035年**，日期依据[香港天文台公历与农历日期对照表](https://www.hko.gov.hk/tc/gts/time/conversion1_text.htm)核对。这里展示的是节日当天与倒数，不是国务院调休或工作日安排。个人倒数日不受内置节日年份表限制。
 
@@ -139,13 +141,14 @@ npm run dist:windows
 node tests/ui-gallery.mjs
 node tests/calendar-popup.mjs
 node tests/settings-compact.mjs
+node tests/focus-timer.mjs
 ```
 
 该脚本使用独立数据目录，实际创建公开演示文件与事项，不读写你的个人配置，也不隐藏或移动真实桌面文件。
 
 ## 验证与反馈
 
-v2.8.2已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px设置页、20px字号的双列预览、透明度与颜色字号保存、桌面分组滚动后可见、分区单行及菜单、收纳三列与搜索清除按钮。日历、三列倒数日、待办和便签沿用v2.8.0–v2.8.1的真实窗口验证记录；截图采用实际运行窗口，示例内容已明确标注。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.2)。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
+v2.8.3已通过151项单元与契约检查、类型检查和生产构建。本轮检查300/360/420px下个人倒数日与节日卡片尺寸一致、菜单边界及编辑删除；另先在真实旧版窗口复现25:01，再检查修复后的开始、暂停继续、重置、切换页面及重新加载恢复、短计时自然归零，并记录启动后的显示变化；通知验收覆盖尚余15分钟、截止前1ms、截止到达和不重复发送，边界使用隔离的主进程时钟模拟，另以真实3秒计时检查自然归零；全部通知在独立日志内捕获，不弹到Windows通知中心。设置与收纳沿用v2.8.2的真实窗口验证记录，日历、待办和便签沿用v2.8.0–v2.8.1记录；各图标明实际版本，预览示例也已说明。更多结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.3)。本轮未等待完整25分钟，也未覆盖安装向导覆盖升级、真实锁屏、多屏热插拔和全天连续运行。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

@@ -50,7 +50,8 @@ export function daysUntil(date: string, now: number): number {
   return Math.round((Date.parse(`${date}T00:00:00Z`)-Date.parse(`${today}T00:00:00Z`))/86400000)
 }
 export function focusRemaining(clock: FocusClock, now: number): number {
-  return clock.endAt === null ? clock.remainingSeconds : Math.max(0, Math.ceil((clock.endAt-now)/1000))
+  // A cached display time can precede the latest start or resume.
+  return clock.endAt === null ? clock.remainingSeconds : Math.max(0, Math.min(clock.remainingSeconds, Math.ceil((clock.endAt-now)/1000)))
 }
 export function changeFocus(clock: FocusClock, action: string, now: number, duration?: number): FocusClock {
   if (action === 'reset') return {...clock,endAt:null,remainingSeconds:clock.durationSeconds,notified:false}

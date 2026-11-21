@@ -1,8 +1,13 @@
-const {app,BrowserWindow,ipcMain,Menu,shell}=require('electron')
+const {app,BrowserWindow,ipcMain,Menu,shell,Notification}=require('electron')
 const fs=require('node:fs')
 const path=require('node:path')
 const root=path.resolve(__dirname,'..')
 const testDirectory=process.env.GERSON_E2E_DATA_DIRECTORY
+if(!testDirectory || !path.isAbsolute(testDirectory))throw Error('The test host requires an absolute isolated data directory')
+// Test notifications stay in this process's evidence directory and never reach Windows.
+Notification.prototype.show=function(){
+ fs.appendFileSync(path.join(testDirectory,'notifications.jsonl'),JSON.stringify({title:this.title,body:this.body,at:Date.now()})+'\n')
+}
 const openPath=shell.openPath.bind(shell)
 shell.openPath=async target=>{
  const relative=path.relative(testDirectory,path.resolve(target))

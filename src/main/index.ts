@@ -1,6 +1,6 @@
 import { captureWellnessUndo, validateWellnessUndo, type WellnessUndo } from './wellness-undo'
 import { desktopPanels, setPanelVisibility, assistantTools, assistantDetailTools, healthWidgetSize } from './desktop-panels'
-import { defaultSuite, validateSuite, extraWidgetKinds, widgetTitles, changeFocus, focusRemaining, type WidgetSuite } from './widget-suite'
+import { defaultSuite, validateSuite, extraWidgetKinds, widgetTitles, changeFocus, type WidgetSuite } from './widget-suite'
 import { agenda, validateCalendar } from './calendar-service'
 import { readFile, stat } from 'node:fs/promises'
 import { publicText } from './public-request'
@@ -1079,7 +1079,7 @@ const startReminderWatcher = (): void => {
     if (suspended || locked) pause()
     else advanceWellness(now)
     const focus=store.data.suite.focus
-    if (!suspended && !locked && focus.endAt !== null && focusRemaining(focus,now) === 0 && !focus.notified) {
+    if (!suspended && !locked && focus.endAt !== null && focus.endAt <= now && !focus.notified) {
       void store.update(data=>{data.suite.focus={...data.suite.focus,endAt:null,remainingSeconds:0,notified:true}}).then(()=>{
         new Notification({title:'专注计时结束',body:'这一轮已完成，可以休息一下。'}).show();broadcastData()
       }).catch(console.error)
