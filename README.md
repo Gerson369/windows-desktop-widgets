@@ -4,9 +4,9 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.8.0 · MIT 开源**
+**Windows 10 / 11 x64 · v2.8.1 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.0) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.1) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 <table>
   <tr>
@@ -15,14 +15,12 @@
   </tr>
 </table>
 
-本页图片直接截取自 v2.8.0 实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
+本页当天清单截图来自 v2.8.1，其他界面截图来自 v2.8.0 的实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
 
-## v2.8.0 更新
+## v2.8.1 更新
 
-- **月历更接近日历应用**：按周划分日期，补齐相邻月份日期；跨天安排显示为连续横条，跨周时分段延续，不再每天重复一小块。
-- **点击先看详情**：底部圆角浮窗展示事项标题、起止时间、来源、地点和备注；点“编辑日程”再修改，查看时无需面对整张表单。
-- **全天安排可跨多天**：结束日期包含当天；可以安排旅行、课程和连续几天的重要事项。
-- **本地与订阅都能看完整内容**：本地日程可填写地点和多行备注；ICS中的地点、说明也会显示在详情里，订阅继续只读。
+- **当天清单每项一行**：时间、颜色点、事项名称和编辑/删除按钮放在同一排，缩小行高；类别、结束时间在详情里查看。
+- **长标题也保持紧凑**：超出宽度时省略显示，鼠标悬停或点击查看完整名称，日程内容完整保留。
 
 ## 它能帮你做什么
 
@@ -47,15 +45,17 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/windows-desktop-widgets-2.8.0-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/windows-desktop-widgets-2.8.0-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/windows-desktop-widgets-2.8.1-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/windows-desktop-widgets-2.8.1-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.1/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
 ## 真实界面
 
 下面均为新版软件的实际窗口截图。点击图片可查看原图。
+
+<p><strong>当天清单：每项一行，点击名称查看完整详情</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="v2.8.1实际运行的单行日程清单" width="360" /></a></p>
 
 <table>
   <tr>
@@ -90,7 +90,7 @@
 
 内置节日资料覆盖 **2026–2035年**，日期依据[香港天文台公历与农历日期对照表](https://www.hko.gov.hk/tc/gts/time/conversion1_text.htm)核对。这里展示的是节日当天与倒数，不是国务院调休或工作日安排。个人倒数日不受内置节日年份表限制。
 
-日历按周显示整个月，也显示相邻月份的补齐日期。跨天日程在同一周内连成横条，跨周时分段延续；同一天超过两条时显示“+N”，点击日期或“+N”查看当天完整清单。
+日历按周显示整个月，也显示相邻月份的补齐日期。跨天日程在同一周内连成横条，跨周时分段延续；同一天超过两条时显示“+N”，点击日期或“+N”查看当天完整清单。每项一行显示时间、颜色和名称，右侧保留操作按钮；长名称省略显示，悬停或点击查看完整内容。
 
 点击事项先打开底部详情浮窗，展示起止时间、来源，以及已填写的地点与备注。点击“编辑日程”再修改；保存、取消或按 Esc 返回月历，保存失败保留输入。全天安排的结束日期包含当天。地点与备注以纯文本保存在本机。
 
@@ -136,7 +136,7 @@ node tests/calendar-popup.mjs
 
 ## 验证与反馈
 
-v2.8.0已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px月历和底部浮窗、跨天横条与跨周分段、详情优先、只读来源的地点备注、全天结束日期、创建编辑、取消不保存、Esc关闭与焦点返回，以及保存失败保留全部输入和重试；同时核对收纳置顶、三列倒数日、待办完成和便签保存；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.0)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
+v2.8.1已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px单行当天清单、长标题省略与完整详情、行内编辑删除，以及月历和底部浮窗、跨天横条与跨周分段、详情优先、只读来源的地点备注、全天结束日期、创建编辑、取消不保存、Esc关闭与焦点返回，以及保存失败保留全部输入和重试。收纳置顶、三列倒数日、待办完成和便签保存沿用v2.8.0的验证记录；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.1)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

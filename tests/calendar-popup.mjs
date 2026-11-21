@@ -19,6 +19,7 @@ const monthMonday = dateAfter(monthStart, (8 - new Date(`${monthStart}T12:00:00`
 const firstMonday = [0, 7, 14].map(days => dateAfter(monthMonday, days)).find(date => today < dateAfter(date, 1) || today > dateAfter(date, 8))
 const crossWeekStart = dateAfter(firstMonday, 4), crossWeekEnd = dateAfter(firstMonday, 8)
 const sameWeekStart = dateAfter(firstMonday, 1), sameWeekEnd = dateAfter(firstMonday, 2)
+const longTitle = '本周项目资料归档与下周计划整理，预留时间核对所有公开演示材料'
 await fs.mkdir(path.join(directory, 'data'))
 await fs.mkdir(desktop)
 const initial = defaultData()
@@ -28,6 +29,7 @@ Object.assign(initial.desktopModules.find(module => module.id === 'todos'), { x:
 initial.suite.events = [
   { id: 'local-morning', title: '资料整理', start: new Date(`${today}T09:00:00`).toISOString(), end: new Date(`${today}T10:00:00`).toISOString(), allDay: false, category: 'work', color: '#8ab9f1', location: '共享书房 A 区', notes: '整理公开演示资料。\n完成后记录进度。' },
   { id: 'local-afternoon', title: '午后散步', start: new Date(`${today}T14:00:00`).toISOString(), end: new Date(`${today}T14:30:00`).toISOString(), allDay: false, category: 'personal', color: '#b8e1ca' },
+  { id: 'long-title', title: longTitle, start: new Date(`${today}T11:00:00`).toISOString(), end: new Date(`${today}T12:00:00`).toISOString(), allDay: false, category: 'work', color: '#cbacf0', location: '共享书房 B 区', notes: '本条使用公开演示资料，用于安排每周资料整理。' },
   { id: 'same-week', title: '两天资料归档', start: new Date(`${sameWeekStart}T00:00:00`).toISOString(), end: new Date(`${dateAfter(sameWeekEnd, 1)}T00:00:00`).toISOString(), allDay: true, category: 'personal', color: '#e7b37b' },
   { id: 'cross-week', title: '跨周项目准备', start: new Date(`${crossWeekStart}T00:00:00`).toISOString(), end: new Date(`${dateAfter(crossWeekEnd, 1)}T00:00:00`).toISOString(), allDay: true, category: 'work', color: '#86d6cd' }
 ]
@@ -39,7 +41,7 @@ const child = spawn(path.resolve('node_modules/electron/dist/electron.exe'), [pa
 const exited = once(child, 'close')
 let logs = '', evaluate, page, failure
 child.stdout.on('data', bytes => { logs += bytes }); child.stderr.on('data', bytes => { logs += bytes })
-const report = { ok: false, directory, checks: [], layouts: [], monthLayouts: [], screenshots: [] }
+const report = { ok: false, directory, checks: [], layouts: [], monthLayouts: [], rowLayouts: [], screenshots: [] }
 const dayButton = `.calendar-date-number[aria-label="${today}"]`
 const addButton = '[aria-label="添加日程"]'
 
@@ -106,6 +108,30 @@ async function monthLayout() {
   assert.deepEqual(result.segments.filter(segment => segment.id === 'cross-week').map(({ before, after }) => ({ before, after })), [{ before: false, after: true }, { before: true, after: false }])
   report.monthLayouts.push(result)
 }
+async function dayRowsLayout() {
+  const result = await evaluate(`(()=>{
+    const rows=[...document.querySelectorAll('.calendar-event')].map(row=>{
+      const r=row.getBoundingClientRect(),copy=row.querySelector('.calendar-event-copy'),title=copy.querySelector('b'),textStyle=getComputedStyle(title),t=title.getBoundingClientRect();
+      const cells=[...row.children].map(cell=>{const c=cell.getBoundingClientRect();return {left:c.left,right:c.right,center:c.top+c.height/2}});
+      const actions=[...row.querySelectorAll('.calendar-event-actions button')].map(button=>{const b=button.getBoundingClientRect();return {left:b.left,right:b.right,width:b.width}});
+      return {title:title.textContent,aria:copy.getAttribute('aria-label'),tooltip:copy.title,height:r.height,centers:cells.map(cell=>cell.center),inside:cells.every(cell=>cell.left>=r.left && cell.right<=r.right),subtitle:Boolean(row.querySelector('small')),whiteSpace:textStyle.whiteSpace,overflow:textStyle.textOverflow,oneLine:t.height<=parseFloat(textStyle.lineHeight)+1,clipped:title.scrollWidth>title.clientWidth,actions,copyRight:copy.getBoundingClientRect().right};
+    });return {width:innerWidth,rows};
+  })()`)
+  assert.equal(result.rows.length, 4)
+  for (const row of result.rows) {
+    assert.ok(Math.max(...row.centers)-Math.min(...row.centers)<1.1, 'time, color, title and actions must share one row')
+    assert.equal(row.inside, true); assert.equal(row.subtitle, false); assert.equal(row.oneLine, true)
+    assert.equal(row.whiteSpace, 'nowrap'); assert.equal(row.overflow, 'ellipsis')
+    assert.equal(row.aria, `查看日程 ${row.title}`); assert.equal(row.tooltip, row.title)
+    for (const [index, action] of row.actions.entries()) {
+      assert.ok(action.width>=20); assert.ok(action.left>=row.copyRight-1)
+      if (index) assert.ok(action.left>=row.actions[index-1].right)
+    }
+    assert.equal(row.actions.length, row.title==='订阅只读事项' ? 0 : 2)
+  }
+  assert.equal(result.rows.find(row=>row.title===longTitle).clipped, true)
+  report.rowLayouts.push(result)
+}
 async function screenshot(name) {
   await until(() => evaluate(`document.fonts.status==='loaded'`))
   assert.doesNotMatch(await evaluate('document.body.innerText'), /C:\\Users\\|D:\\|\.calendar-popup-e2e-data-/i)
@@ -123,6 +149,26 @@ try {
   for (const width of [300, 420]) { await resize(width); await monthLayout() }
   report.checks.push('300/420px month grids keep seven columns; a two-day event is one continuous bar and a Friday-to-Tuesday event splits into three-day/two-day weekly segments')
   assert.equal(await evaluate(`Boolean(document.querySelector('.calendar-agenda,.calendar-editor'))`), false)
+  for (const width of [300, 420]) {
+    await resize(width)
+    await click(dayButton); await popupOpen()
+    await until(() => evaluate(`document.querySelectorAll('.calendar-event').length===4`))
+    await dayRowsLayout(); await layout('single-line-day')
+    await screenshot(`day-list-${width}.png`)
+    await click(`.calendar-event-copy[aria-label="查看日程 ${longTitle}"]`)
+    await until(() => evaluate(`Boolean(document.querySelector('.calendar-event-detail'))`))
+    assert.equal(await evaluate(`document.querySelector('.calendar-event-detail h3').textContent`), longTitle)
+    await escapeFrom('[aria-label="关闭日程详情"]', dayButton)
+  }
+  await click(dayButton); await popupOpen()
+  await click(`[aria-label="编辑日程 ${longTitle}"]`)
+  await until(() => evaluate(`document.querySelector('[aria-label="日程名称"]')?.value===${JSON.stringify(longTitle)}`))
+  await click('[aria-label="取消日程编辑"]'); await popupClosed()
+  await click(dayButton); await popupOpen()
+  await click(`[aria-label="删除日程 ${longTitle}"]`)
+  await until(() => evaluate(`(async()=>{const data=await window.toolbox.data.get();return !data.suite.events.some(event=>event.id==='long-title') && document.querySelectorAll('.calendar-event').length===3})()`))
+  await click('[aria-label="关闭当天日程"]'); await popupClosed()
+  report.checks.push('300/420px day lists keep each event on one row; long titles ellipsize with complete tooltip/aria and detail, buttons stay inside, read-only rows omit actions, and inline edit/delete work')
   const originalHeight = await calendarHeight()
   await click(dayButton); await popupOpen()
   await until(() => evaluate(`document.querySelectorAll('.calendar-event').length===3`))

@@ -186,7 +186,7 @@ onBeforeUnmount(() => { generation++; clearInterval(timer) })
       <article v-for="event in selectedEvents" :key="event.id" class="calendar-event" :style="{ '--event-color': eventColor(event) }">
         <time :datetime="event.start">{{ eventTime(event) }}</time>
         <span class="calendar-event-dot" aria-hidden="true"/>
-        <button type="button" class="calendar-event-copy" :aria-label="`查看日程 ${event.title}`" :disabled="busy" @click="openEvent(event, selected)"><b>{{ event.title }}</b><small>{{ event.source }}<template v-if="!event.allDay"> · 至 {{ new Date(event.end).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) }}</template></small></button>
+        <button type="button" class="calendar-event-copy" :aria-label="`查看日程 ${event.title}`" :title="event.title" :disabled="busy" @click="openEvent(event, selected)"><b>{{ event.title }}</b></button>
         <div v-if="data.suite.events.some(item => item.id === event.id)" class="calendar-event-actions">
           <button type="button" class="calendar-icon-button" :aria-label="`编辑日程 ${event.title}`" title="编辑日程" :disabled="busy" @click="edit(event)"><AssistantIcon name="edit"/></button>
           <button type="button" class="calendar-icon-button" :aria-label="`删除日程 ${event.title}`" title="删除日程" :disabled="busy" @click="perform(() => removeEvent(event))"><AssistantIcon name="recycle"/></button>
@@ -268,13 +268,12 @@ onBeforeUnmount(() => { generation++; clearInterval(timer) })
 .calendar-card .calendar-add{display:flex;align-items:center;gap:3px;padding:3px 8px;min-height:28px;background:#a4dbb61c;border-color:#a4dbb63d;font-size:11px}
 .calendar-empty{margin:16px 0 20px;font-size:12px;line-height:1.6;color:#bdcbc3}
 .calendar-agenda{display:grid;gap:4px;padding:8px 0 4px}
-.calendar-event{display:grid;grid-template-columns:38px 5px minmax(0,1fr) auto;align-items:start;gap:8px;padding:10px 5px;border-radius:9px;background:color-mix(in srgb,var(--event-color) 7%,transparent)}
-.calendar-event time{font-size:10px;line-height:19px;color:#d4e0d9;font-variant-numeric:tabular-nums}
-.calendar-event-dot{width:5px;height:5px;border-radius:50%;margin-top:7px;background:var(--event-color)}
-.calendar-card .calendar-event-copy{display:grid;gap:3px;min-width:0;padding:0;border:0;background:transparent;text-align:left;color:inherit}
+.calendar-event{display:grid;grid-template-columns:38px 5px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 6px;border-radius:9px;background:color-mix(in srgb,var(--event-color) 7%,transparent)}
+.calendar-event time{font-size:10px;line-height:26px;white-space:nowrap;color:#d4e0d9;font-variant-numeric:tabular-nums}
+.calendar-event-dot{width:5px;height:5px;border-radius:50%;background:var(--event-color)}
+.calendar-card .calendar-event-copy{display:block;min-width:0;min-height:26px;height:26px;padding:0;border:0;background:transparent;text-align:left;color:inherit}
 .calendar-event-copy:disabled{opacity:1;cursor:default}
-.calendar-event-copy b{font-size:12px;line-height:19px;font-weight:500;overflow-wrap:anywhere}
-.calendar-event-copy small{font-size:10px;line-height:1.5}
+.calendar-event-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:26px;font-weight:500}
 .calendar-event-actions{display:flex;gap:1px}
 .calendar-event-actions .calendar-icon-button{width:23px;height:26px;min-height:26px;flex-basis:23px;color:#bfcec5}
 .calendar-event-actions svg{width:13px;height:13px}
