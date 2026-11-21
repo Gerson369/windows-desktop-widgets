@@ -694,9 +694,14 @@ const createTray = (): void => {
   const trayIcon = preferredIcon.isEmpty() ? fallbackIcon : preferredIcon.resize({ width: 32, height: 32 })
   tray = new Tray(trayIcon)
   tray.setToolTip('桌面搭子')
+  const openAssistant = (): void => {
+    void showMainWindow('todos').catch(error => {
+      new Notification({ title: '桌面搭子未能打开', body: error instanceof Error ? error.message : '请稍后重试。' }).show()
+    })
+  }
   const updateMenu = (): void => {
     tray?.setContextMenu(Menu.buildFromTemplate([
-      { label: '显示桌面小组件', click: () => { void showDesktopWidgets() } },
+      { label: '打开桌面搭子', click: openAssistant },
       { label: store.data.settings.desktopCollected ? '停止收纳，显示原桌面' : '自动收纳桌面', click: () => { void (store.data.settings.desktopCollected ? stopDesktopCollection() : startDesktopCollection()).catch(error => { new Notification({ title: '桌面收纳未完成', body: error.message }).show() }) } },
       { label: '刷新文件分类', click: () => { void refreshDesktopGroups().catch(console.error) } },
       { label: '设置与布局恢复', click: () => { void showMainWindow('settings') } },
@@ -706,8 +711,8 @@ const createTray = (): void => {
     ]))
   }
   updateMenu()
-  tray.on('click', () => { void showDesktopWidgets() })
-  tray.on('double-click', () => { void showDesktopWidgets() })
+  tray.on('click', openAssistant)
+  tray.on('double-click', openAssistant)
   tray.on('right-click', updateMenu)
   setInterval(updateMenu, 20_000).unref()
 }

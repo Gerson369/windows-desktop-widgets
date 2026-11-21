@@ -1069,3 +1069,54 @@ test('calendar editor creates distinct colors, preserves all-day boundaries and 
   await state.edit({ id: 'external', title: '订阅日程', source: '订阅', start: saved.start, end: saved.end, allDay: false })
   assert.equal(state.editorOpen.value, false)
 })
+
+
+test('month cells show colored previews and remaining counts while the selected day keeps every event', async () => {
+  const { state, props } = await calendarEditor()
+  const instant = value => new Date(value).toISOString()
+  props.data.suite.events = [
+    { id: 'first', title: '第一项完整标题', start: instant('2026-11-21T09:00:00'), end: instant('2026-11-21T10:00:00'), allDay: false, category: 'work', color: '#8ab9f1' },
+    { id: 'second', title: '第二项', start: instant('2026-11-21T10:00:00'), end: instant('2026-11-21T11:00:00'), allDay: false, category: 'personal', color: '#e7b37b' },
+    { id: 'third', title: '第三项', start: instant('2026-11-21T11:00:00'), end: instant('2026-11-21T12:00:00'), allDay: false, category: 'personal', color: '#cbacf0' },
+    { id: 'fourth', title: '第四项', start: instant('2026-11-21T14:00:00'), end: instant('2026-11-21T15:00:00'), allDay: false, category: 'work', color: '#eea1b6' }
+  ]
+  state.month.value = '2026-11'; state.select('2026-11-21'); await state.refresh()
+  const cell = state.daysWithEvents.value.find(day => day.date === '2026-11-21')
+  assert.deepEqual(Array.from(cell.preview, event => event.id), ['first', 'second'])
+  assert.equal(cell.remaining, 2)
+  assert.equal(cell.preview[0].title, '第一项完整标题')
+  assert.deepEqual(Array.from(cell.preview, state.eventColor), ['#8ab9f1', '#e7b37b'])
+  assert.equal(state.selectedEvents.value.length, 4)
+  const empty = state.daysWithEvents.value.find(day => day.date === '2026-11-22')
+  assert.equal(empty.preview.length, 0); assert.equal(empty.remaining, 0)
+  assert.ok(state.daysWithEvents.value.filter(day => !day.date).every(day => day.events.length === 0))
+  assert.equal(props.data.suite.events.length, 4)
+})
+
+test('month previews repeat cross-day events but exclude the end date of all-day and midnight-ending events', async () => {
+  const { state, props } = await calendarEditor()
+  const instant = value => new Date(value).toISOString()
+  const event = (id, start, end, allDay = false) => ({ id, title: id, start: instant(start), end: instant(end), allDay, category: 'personal' })
+  props.data.suite.events = [
+    event('overnight', '2026-11-19T23:00:00', '2026-11-21T01:00:00'),
+    event('all-day', '2026-11-20T00:00:00', '2026-11-22T00:00:00', true),
+    event('until-midnight', '2026-11-21T10:00:00', '2026-11-22T00:00:00'),
+    event('instant', '2026-11-21T00:00:00', '2026-11-21T00:00:00'),
+    event('next-month', '2026-11-30T23:00:00', '2026-12-02T09:00:00')
+  ]
+  const before = JSON.stringify(props.data.suite.events)
+  state.month.value = '2026-11'; await state.refresh()
+  const ids = date => Array.from(state.daysWithEvents.value.find(day => day.date === date).events, item => item.id)
+  assert.deepEqual(ids('2026-11-19'), ['overnight'])
+  assert.deepEqual(ids('2026-11-20'), ['all-day', 'overnight'])
+  assert.deepEqual(ids('2026-11-21'), ['all-day', 'overnight', 'instant', 'until-midnight'])
+  assert.deepEqual(ids('2026-11-22'), [])
+  assert.deepEqual(ids('2026-11-30'), ['next-month'])
+  state.month.value = '2026-12'; state.select('2026-12-01'); await state.refresh()
+  assert.deepEqual(ids('2026-12-01'), ['next-month'])
+  assert.deepEqual(ids('2026-12-02'), ['next-month'])
+  assert.deepEqual(ids('2026-12-03'), [])
+  assert.equal(state.selectedEvents.value[0].id, 'next-month')
+  assert.equal(state.eventsOnDate('invalid').length, 0)
+  assert.equal(JSON.stringify(props.data.suite.events), before)
+})

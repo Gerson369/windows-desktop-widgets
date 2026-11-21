@@ -56,3 +56,27 @@ test('collection readiness accepts an explicit fallback but rejects missing inve
     assert.equal(Boolean(vm.runInNewContext(call.arguments[0].text,{document:{querySelector:selector=>selector.includes(surface)?{}:null,querySelectorAll:()=>[]}})),true)
   }
 })
+
+
+test('tray click, double-click and menu reopen the assistant rather than only the collection panel', async()=>{
+ const declaration=findNode(mainAst,node=>ts.isVariableDeclaration(node) && node.name.getText(mainAst)==='createTray')
+ const handlers={},opened=[],notifications=[]
+ let menu
+ class Tray { setToolTip(){} setContextMenu(value){menu=value} on(event,callback){handlers[event]=callback} }
+ class Notification { constructor(value){notifications.push(value)} show(){} }
+ const icon={isEmpty:()=>false,resize:()=>icon}
+ const context={module:{exports:null},tray:null,Tray,Notification,nativeImage:{createFromPath:()=>icon,createEmpty:()=>icon,createFromDataURL:()=>icon},
+  app:{isPackaged:false,getAppPath:()=>'.'},join:(...parts)=>parts.join('/'),existsSync:()=>true,Menu:{buildFromTemplate:items=>items},
+  store:{data:{settings:{desktopCollected:false}}},showMainWindow:async section=>{opened.push(section)},
+  setInterval:()=>({unref(){}}),console}
+ vm.runInNewContext(ts.transpileModule(declaration.parent.getText(mainAst)+';module.exports=createTray',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
+ context.module.exports()
+ handlers.click();handlers['double-click']();menu[0].click()
+ await Promise.resolve()
+ assert.deepEqual(opened,['todos','todos','todos'])
+ assert.equal(menu[0].label,'打开桌面搭子')
+ context.showMainWindow=async()=>{throw Error('save unavailable')}
+ handlers.click();await Promise.resolve();await Promise.resolve()
+ assert.equal(notifications.length,1)
+ assert.equal(notifications[0].title,'桌面搭子未能打开')
+})

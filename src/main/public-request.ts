@@ -14,21 +14,45 @@ export async function publicText(address: string, maximum=2_000_000): Promise<st
   const url=new URL(address)
   if(url.protocol!=='https:' || url.username || url.password || (url.port && url.port!=='443')) throw new Error('仅支持公网 HTTPS 地址和标准端口。')
   const host=url.hostname.replace(/^\[|\]$/g,'')
-  const resolved=await lookup(host,{all:true})
-  if(!resolved.length || resolved.some(item=>!publicAddress(item.address))) throw new Error('不能读取本机、内网或保留地址。')
-  const selected=resolved[0]
   return new Promise((resolve,reject)=>{
-    const timeout=setTimeout(()=>req.destroy(new Error('网络请求超时。')),12000)
-    const req=request(url,{headers:{'User-Agent':'GersonDesktop/2.0','Accept':'application/json,text/calendar,text/plain'},lookup:((_host:unknown,options:{all?:boolean},callback:Function)=>options.all?callback(null,[selected]):callback(null,selected.address,selected.family)) as never},response=>{
-      if(response.statusCode!==200) {response.resume();req.destroy(new Error(`服务返回 ${response.statusCode}；请提供最终地址，不自动跟随重定向。`));return}
-      const chunks:Buffer[]=[]
-      let size=0
-      response.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>maximum) req.destroy(new Error('服务返回内容过大。'));else chunks.push(chunk)})
-      response.on('end',()=>resolve(Buffer.concat(chunks).toString('utf8')))
-      response.on('error',reject)
-    })
-    req.on('error',reject)
-    req.on('close',()=>clearTimeout(timeout))
-    req.end()
+    let currentRequest: ReturnType<typeof request> | undefined
+    let finished=false
+    const finish=(error:Error|null,body=''):void=>{
+      if(finished) return
+      finished=true
+      clearTimeout(timeout)
+      if(error) reject(error)
+      else resolve(body)
+    }
+    // DNS lookup and connection share one deadline, including a resolver that never returns.
+    const timeout=setTimeout(()=>{
+      finish(Object.assign(new Error('网络请求超时。'),{code:'ETIMEDOUT'}))
+      currentRequest?.destroy()
+    },12000)
+    void lookup(host,{all:true}).then(resolved=>{
+      if(finished) return
+      if(!resolved.length || resolved.some(item=>!publicAddress(item.address))) throw new Error('不能读取本机、内网或保留地址。')
+      const selected=resolved[0]
+      currentRequest=request(url,{
+        headers:{'User-Agent':'GersonDesktop/2.0','Accept':'application/json,text/calendar,text/plain'},
+        lookup:((_host:unknown,options:{all?:boolean},callback:Function)=>options.all?callback(null,resolved):callback(null,selected.address,selected.family)) as never
+      },response=>{
+        if(response.statusCode!==200) {
+          finish(new Error(`服务返回 ${response.statusCode}；请提供最终地址，不自动跟随重定向。`))
+          response.resume();currentRequest?.destroy();return
+        }
+        const chunks:Buffer[]=[]
+        let size=0
+        response.on('data',(chunk:Buffer)=>{
+          size+=chunk.length
+          if(size>maximum) {finish(new Error('服务返回内容过大。'));currentRequest?.destroy()}
+          else chunks.push(chunk)
+        })
+        response.on('end',()=>finish(null,Buffer.concat(chunks).toString('utf8')))
+        response.on('error',error=>finish(error))
+      })
+      currentRequest.on('error',error=>finish(error))
+      currentRequest.end()
+    }).catch(error=>finish(error))
   })
 }

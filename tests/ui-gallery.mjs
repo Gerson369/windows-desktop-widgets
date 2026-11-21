@@ -112,6 +112,16 @@ try {
     await until(() => assistant(`window.toolbox.data.get().then(data=>data.suite.cities.length===1)`))
     await until(() => assistant(`Boolean(document.querySelector('.weather-current')) || Boolean(document.querySelector('.weather-city [role=alert]'))`))
   }
+  assert.equal(weatherCity, true, 'Guangzhou must be saved through the actual search UI')
+  if (!await assistant(`Boolean(document.querySelector('.weather-current'))`)) {
+    await assistant(`Array.from(document.querySelectorAll('.suite-content button')).find(button=>button.textContent.trim()==='刷新天气')?.click()`)
+    await until(() => assistant(`Boolean(document.querySelector('.weather-current'))`))
+  }
+  report.weatherReading = await assistant(`(async()=>{const data=await window.toolbox.data.get();return window.toolbox.suite.weather(data.suite.cities[0].id)})()`)
+  assert.ok(Number.isFinite(report.weatherReading.temperature))
+  assert.equal(report.weatherReading.days.length, 3)
+  assert.notEqual(report.weatherReading.stale, true)
+  await screenshot(assistantPage, assistant, 'weather.png')
   report.liveWeather = await assistant(`document.querySelector('#overview-weather').innerText`)
   await tool('todos')
   check('overview waits for a real CPU sample and tries Guangzhou through the actual city-search UI without injected readings')
@@ -139,9 +149,9 @@ try {
   await resize(420, 720)
   await until(() => assistant(`Boolean(document.querySelector('[aria-label="添加日程"]'))`))
   for (const [name, start, end, color] of [
-    ['演示：整理项目资料', '09:00', '10:00', '天蓝'],
-    ['演示：午后散步', '14:00', '14:30', '薄荷绿'],
-    ['演示：阅读与复盘', '20:00', '21:00', '淡紫']
+    ['资料整理', '09:00', '10:00', '天蓝'],
+    ['午后散步', '14:00', '14:30', '薄荷绿'],
+    ['阅读复盘', '20:00', '21:00', '淡紫']
   ]) {
     await assistant(`document.querySelector('[aria-label="添加日程"]').click()`)
     await until(() => assistant(`Boolean(document.querySelector('.calendar-event-form'))`))
@@ -155,14 +165,27 @@ try {
   const calendar = await assistant(`(() => {const rows=[...document.querySelectorAll('.calendar-event')];return {today:document.querySelector('.calendar-grid [aria-current=date]').getAttribute('aria-label'),colors:rows.map(row=>getComputedStyle(row).getPropertyValue('--event-color').trim()),names:rows.map(row=>row.querySelector('b').textContent)}})()`)
   assert.equal(calendar.today, today)
   assert.equal(new Set(calendar.colors).size, 3)
+  const examples = [3,8,16,25,28].filter(day=>day!==new Date().getDate()).slice(0,4).map((day,index)=>{
+    const date=today.slice(0,8)+String(day).padStart(2,'0')
+    return {id:'month-example-'+day,title:['整理账单','周末采购','项目讨论','读书计划'][index],start:new Date(date+'T10:00:00').toISOString(),end:new Date(date+'T11:00:00').toISOString(),allDay:false,category:'personal',color:['#e7b37b','#8ab9f1','#86d6cd','#eea1b6'][index]}
+  })
+  await assistant(`(async()=>{const data=await window.toolbox.data.get();await window.toolbox.suite.save({events:[...data.suite.events,...${JSON.stringify(examples)}]})})()`)
+  await until(()=>assistant(`document.querySelectorAll('.calendar-month-event').length>=6`))
+  report.monthLayouts=[]
+  for (const width of [300,420]) {
+    await resize(width,720)
+    const layout=await assistant(`(()=>{const grid=document.querySelector('.calendar-grid'),view=document.querySelector('.calendar-month-scroll'),day=document.querySelector('.calendar-day[data-date="${today}"]');return {width:innerWidth,columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,overflow:view.scrollWidth>view.clientWidth,badges:day.querySelectorAll('.calendar-month-event').length,more:day.querySelector('.calendar-more-events')?.textContent}})()`)
+    assert.equal(layout.columns,7);assert.equal(layout.overflow,false);assert.equal(layout.badges,2);assert.match(layout.more,/1/)
+    report.monthLayouts.push(layout)
+  }
   await resize(420)
   await assistant(`document.querySelector('.suite-content').scrollTo(0,0)`)
   report.calendarAgenda = await assistant(`(() => {const content=document.querySelector('.suite-content').getBoundingClientRect();return {width:innerWidth,height:innerHeight,viewportBottom:content.bottom,rows:[...document.querySelectorAll('.calendar-event')].map(node=>({top:node.getBoundingClientRect().top,bottom:node.getBoundingClientRect().bottom}))}})()`)
   await resize(420, 720)
   await screenshot(assistantPage, assistant, 'calendar-agenda.png')
-  await assistant(`document.querySelector('[aria-label="编辑日程 演示：阅读与复盘"]').click()`)
+  await assistant(`document.querySelector('[aria-label="编辑日程 阅读复盘"]').click()`)
   await until(() => assistant(`Boolean(document.querySelector('.calendar-editor'))`))
-  await fill(assistant, '[aria-label="日程名称"]', '演示：阅读与当天复盘')
+  await fill(assistant, '[aria-label="日程名称"]', '阅读与复盘')
   await assistant(`document.querySelector('.calendar-editor').scrollIntoView({block:'start'})`)
   report.calendarEditors = []
   for (const width of [300, 420]) {
@@ -176,7 +199,7 @@ try {
   }
   await screenshot(assistantPage, assistant, 'calendar-editor.png')
   await assistant(`document.querySelector('.calendar-event-form').requestSubmit()`)
-  await until(() => assistant(`!document.querySelector('.calendar-editor') && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title==='演示：阅读与当天复盘' && item.color==='#cbacf0'))`))
+  await until(() => assistant(`!document.querySelector('.calendar-editor') && window.toolbox.data.get().then(data=>data.suite.events.some(item=>item.title==='阅读与复盘' && item.color==='#cbacf0'))`))
   check('calendar creates and edits three real events for today with three persisted colors and a vertical editor')
 
   await tool('countdown')
@@ -190,14 +213,14 @@ try {
   for (const width of [300, 420]) {
     await resize(width)
     const layout = await assistant(`(() => {const grid=document.querySelector('.holiday-grid');return {width:innerWidth,columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,cards:grid.querySelectorAll('.holiday-card').length,overflow:document.body.scrollWidth>innerWidth}})()`)
-    assert.equal(layout.columns, width === 300 ? 2 : 3)
+    assert.equal(layout.columns, 3)
     assert.equal(layout.overflow, false)
     assert.ok(layout.cards >= 6)
     report.holidayLayouts.push(layout)
   }
-  await resize(420, 720)
+  await resize(300, 720)
   await screenshot(assistantPage, assistant, 'countdown.png')
-  check('holiday grid responds with two/three columns and custom countdown saves through the real form')
+  check('holiday grid keeps three compact columns and custom countdown saves through the real form')
 
   await tool('notes')
   await resize(420)
@@ -220,7 +243,7 @@ try {
   const persisted = JSON.parse(await fs.readFile(path.join(directory, 'data', 'toolbox-data.json'), 'utf8'))
   assert.equal(persisted.todos.length, 3)
   assert.equal(persisted.notes.length, 1)
-  assert.equal(persisted.suite.events.length, 3)
+  assert.equal(persisted.suite.events.length, 7)
   assert.ok(persisted.desktopPinnedPaths.includes(pinned))
   assert.equal(await fs.access(path.join(directory, 'service-fixtures.json')).then(() => true, () => false), false)
   assert.equal(await fs.access(path.join(directory, 'clock')).then(() => true, () => false), false)

@@ -95,15 +95,15 @@ onBeforeUnmount(() => clearInterval(timer))
 .time-panel .time-text-button{display:inline-flex;align-items:center;gap:3px;padding:0;border:0;background:transparent;color:#c3d8cc;font-size:10px;line-height:18px;white-space:nowrap}
 .time-text-button svg{width:13px;height:13px}
 .time-panel .time-hint{margin:8px 0 0;color:#b7c6bf;font-size:10px;line-height:1.6}
-.countdown-list,.holiday-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.countdown-item,.holiday-card{position:relative;display:flex;flex-direction:column;gap:2px;min-width:0;padding:6px 10px;border:1px solid #c1dfcc24;border-radius:12px;background:#c1dfcc08}
-.countdown-item{min-height:76px;padding-right:29px}
+.countdown-list,.holiday-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.countdown-item,.holiday-card{position:relative;display:flex;flex-direction:column;gap:2px;min-width:0;padding:5px 6px;border:1px solid #c1dfcc24;border-radius:12px;background:#c1dfcc08}
+.countdown-item{min-height:0}
 .countdown-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
-.countdown-copy b,.holiday-card>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:500;line-height:17px}
-.countdown-copy small,.holiday-card>small{font-size:10px;line-height:12px;color:#b7c6bf;font-variant-numeric:tabular-nums}
-.countdown-days{display:flex;align-items:baseline;gap:4px;font-size:22px;font-weight:500;line-height:26px;color:#bde4cc;font-variant-numeric:tabular-nums;white-space:nowrap}
-.countdown-days span{font-size:10px;font-weight:400;color:#bacdc1}
-.countdown-actions{position:absolute;right:3px;top:4px;display:flex;flex-direction:column;gap:3px}
+.countdown-copy b,.holiday-card>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:500;line-height:14px}
+.countdown-copy small,.holiday-card>small{font-size:9px;line-height:11px;color:#b7c6bf;font-variant-numeric:tabular-nums}
+.countdown-days{display:flex;align-items:baseline;gap:2px;font-size:18px;font-weight:500;line-height:22px;color:#bde4cc;font-variant-numeric:tabular-nums;white-space:nowrap}
+.countdown-days span{font-size:9px;font-weight:400;color:#bacdc1}
+.countdown-actions{display:flex;justify-content:flex-end;gap:0;margin-top:0}.countdown-actions .time-icon-button{width:24px;height:24px;padding:5px}.countdown-actions svg{width:12px;height:12px}
 .is-today{border-color:#c4e9d063;background:#b7ddc514}
 .is-past .countdown-days{color:#c1cbc5}
 .time-empty{margin:0;padding:10px 0 4px;font-size:11px;line-height:1.6;color:#bacbc1}
@@ -112,7 +112,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .countdown-form input{width:100%;min-width:0;padding:7px 9px;font-size:11px;border-radius:8px;background:#15231c70;border-color:#bdd9c629;color-scheme:dark}
 .countdown-form input[type=date]{flex:1;width:0}
 .holiday-heading{margin-bottom:8px}
-.holiday-card{gap:3px}
+.holiday-card{gap:2px}
 .holiday-source{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px}
 .world-clocks{display:grid;gap:10px}
 .world-clock{padding:12px;border:1px solid #c1dfcc24;border-radius:12px;background:#c1dfcc08}
@@ -136,5 +136,4 @@ onBeforeUnmount(() => clearInterval(timer))
 .focus-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}
 .focus-controls>button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;min-height:32px}
 .focus-panel button svg{width:14px;height:14px}
-@container (min-width:360px){.countdown-list,.holiday-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
