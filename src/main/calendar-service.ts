@@ -1,7 +1,7 @@
 import ICAL from 'ical.js'
 import type { CalendarSource, CalendarEvent } from './widget-suite'
 
-export interface AgendaEvent { id: string; title: string; start: string; end: string; allDay: boolean; source: string }
+export interface AgendaEvent { id: string; title: string; start: string; end: string; allDay: boolean; source: string; location?: string; notes?: string }
 export function validateCalendar(content: string): void {
   if (Buffer.byteLength(content,'utf8') > 2_000_000) throw new Error('日历文件不能超过 2 MB。')
   const calendar = new ICAL.Component(ICAL.parse(content))
@@ -39,7 +39,8 @@ export function expandCalendar(source: CalendarSource, from: number, until: numb
       if(String(details.item.component.getFirstPropertyValue('status')).toUpperCase()==='CANCELLED') return
       const start=instant(details.startDate,details.item.component,'dtstart'), end=instant(details.endDate,details.item.component,'dtend')
       if(!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error('日历中存在无效时间。')
-      if(start.getTime()<until && (end.getTime()>from || start.getTime()>=from)) result.push({id:`${source.id}:${event.uid}:${start.toISOString()}`,title:String(details.item.summary || '未命名日程').slice(0,120),start:start.toISOString(),end:end.toISOString(),allDay:details.startDate.isDate,source:source.name})
+      const location=String(details.item.location || '').trim().slice(0,300), notes=String(details.item.description || '').trim().slice(0,4000)
+      if(start.getTime()<until && (end.getTime()>from || start.getTime()>=from)) result.push({id:`${source.id}:${event.uid}:${start.toISOString()}`,title:String(details.item.summary || '未命名日程').slice(0,120),start:start.toISOString(),end:end.toISOString(),allDay:details.startDate.isDate,source:source.name,...(location ? {location} : {}),...(notes ? {notes} : {})})
       if(result.length>2000) throw new Error('此日期范围日程过多，请缩小范围。')
     }
     if(event.isRecurring()) {

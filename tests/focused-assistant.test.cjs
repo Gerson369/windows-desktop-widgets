@@ -1014,6 +1014,7 @@ async function calendarEditor() {
     if (request === 'vue') return vue
     if (request === '../../toolbox') return { toolbox }
     if (request === '../../../main/widget-suite') return loadTypeScript('src/main/widget-suite.ts')
+    if (request === '../../calendar-layout') return loadTypeScript('src/renderer/calendar-layout.ts')
     if (request.endsWith('.vue')) return {}
     throw Error(`Unexpected calendar dependency: ${request}`)
   } }
@@ -1047,11 +1048,14 @@ test('calendar dates and events open a modal without modifying data; cancel and 
   const local = { id: 'local', title: '原事项', start: new Date(`${day}T09:00`).toISOString(), end: new Date(`${day}T10:00`).toISOString(), allDay: false, category: 'work' }
   props.data.suite.events = [local]; await state.refresh()
   await state.openEvent({ ...local, source: '工作' }, day)
+  assert.equal(state.editorOpen.value, false); assert.equal(state.detailEvent.value.title, '原事项')
+  await state.edit(state.detailEvent.value)
   assert.equal(state.editorOpen.value, true); assert.equal(state.title.value, '原事项')
   state.title.value = '取消的修改'; state.closeEditor()
   assert.equal(props.data.suite.events[0].title, '原事项'); assert.equal(calls.length, 0)
   await state.openEvent({ ...local, id: 'subscription', source: '订阅' }, day)
   assert.equal(popup.open, true); assert.equal(state.editorOpen.value, false)
+  assert.equal(state.detailIsLocal.value, false)
   state.closeEditor(); assert.equal(popup.open, false)
 })
 
@@ -1111,15 +1115,16 @@ test('month cells show colored previews and remaining counts while the selected 
     { id: 'fourth', title: '第四项', start: instant('2026-11-21T14:00:00'), end: instant('2026-11-21T15:00:00'), allDay: false, category: 'work', color: '#eea1b6' }
   ]
   state.month.value = '2026-11'; state.select('2026-11-21'); await state.refresh()
-  const cell = state.daysWithEvents.value.find(day => day.date === '2026-11-21')
+  const cells = state.weeks.value.flatMap(week => week.days)
+  const cell = cells.find(day => day.date === '2026-11-21')
   assert.deepEqual(Array.from(cell.preview, event => event.id), ['first', 'second'])
   assert.equal(cell.remaining, 2)
   assert.equal(cell.preview[0].title, '第一项完整标题')
   assert.deepEqual(Array.from(cell.preview, state.eventColor), ['#8ab9f1', '#e7b37b'])
   assert.equal(state.selectedEvents.value.length, 4)
-  const empty = state.daysWithEvents.value.find(day => day.date === '2026-11-22')
+  const empty = cells.find(day => day.date === '2026-11-22')
   assert.equal(empty.preview.length, 0); assert.equal(empty.remaining, 0)
-  assert.ok(state.daysWithEvents.value.filter(day => !day.date).every(day => day.events.length === 0))
+  assert.equal(cells.length % 7, 0)
   assert.equal(props.data.suite.events.length, 4)
 })
 
@@ -1136,7 +1141,7 @@ test('month previews repeat cross-day events but exclude the end date of all-day
   ]
   const before = JSON.stringify(props.data.suite.events)
   state.month.value = '2026-11'; await state.refresh()
-  const ids = date => Array.from(state.daysWithEvents.value.find(day => day.date === date).events, item => item.id)
+  const ids = date => Array.from(state.weeks.value.flatMap(week => week.days).find(day => day.date === date).events, item => item.id)
   assert.deepEqual(ids('2026-11-19'), ['overnight'])
   assert.deepEqual(ids('2026-11-20'), ['all-day', 'overnight'])
   assert.deepEqual(ids('2026-11-21'), ['all-day', 'overnight', 'instant', 'until-midnight'])
@@ -1149,4 +1154,59 @@ test('month previews repeat cross-day events but exclude the end date of all-day
   assert.equal(state.selectedEvents.value[0].id, 'next-month')
   assert.equal(state.eventsOnDate('invalid').length, 0)
   assert.equal(JSON.stringify(props.data.suite.events), before)
+})
+
+test('month weeks include adjacent dates and split continuous event bars only at week boundaries', () => {
+  const { monthDates, calendarWeeks } = loadTypeScript('src/renderer/calendar-layout.ts')
+  assert.deepEqual(monthDates('bad'), [])
+  const dates = monthDates('2026-11')
+  assert.equal(dates.length, 42); assert.equal(dates[0], '2026-10-26'); assert.equal(dates.at(-1), '2026-12-06')
+  assert.equal(monthDates('2024-02').includes('2024-02-29'), true)
+  const event = (id, start, end) => ({ id, title: id, start: new Date(start).toISOString(), end: new Date(end).toISOString(), allDay: true, source: '个人' })
+  const entries = [event('two-days', '2026-11-03T00:00', '2026-11-05T00:00'), event('cross-week', '2026-11-06T00:00', '2026-11-11T00:00')]
+  const weeks = calendarWeeks(dates, entries)
+  const segments = id => weeks.flatMap(week => week.segments.filter(segment => segment.event.id === id))
+  assert.deepEqual(segments('two-days').map(({ start, end, continuesBefore, continuesAfter }) => ({ start, end, continuesBefore, continuesAfter })), [{ start: 1, end: 3, continuesBefore: false, continuesAfter: false }])
+  assert.deepEqual(segments('cross-week').map(({ start, end, continuesBefore, continuesAfter }) => ({ start, end, continuesBefore, continuesAfter })), [
+    { start: 4, end: 7, continuesBefore: false, continuesAfter: true }, { start: 0, end: 2, continuesBefore: true, continuesAfter: false }
+  ])
+  assert.deepEqual(calendarWeeks(dates, [...entries].reverse()), weeks)
+})
+
+test('overlapping month bars never share a lane and overflow counts include every hidden event', () => {
+  const { monthDates, calendarWeeks } = loadTypeScript('src/renderer/calendar-layout.ts')
+  const entries = Array.from({ length: 5 }, (_, index) => ({ id: String(index), title: '事项', start: new Date('2026-11-03T09:00').toISOString(), end: new Date('2026-11-05T00:00').toISOString(), allDay: false, source: '工作' }))
+  const weeks = calendarWeeks(monthDates('2026-11'), entries)
+  const week = weeks.find(week => week.days.some(day => day.date === '2026-11-03'))
+  assert.deepEqual(week.segments.map(segment => segment.lane), [0, 1])
+  for (const date of ['2026-11-03', '2026-11-04']) {
+    const day = week.days.find(day => day.date === date)
+    assert.equal(day.events.length, 5); assert.equal(day.preview.length, 2); assert.equal(day.remaining, 3)
+  }
+  assert.equal(week.days.find(day => day.date === '2026-11-05').events.length, 0)
+})
+
+test('all-day editing keeps an inclusive multi-day end and optional detail fields through a failed save', async () => {
+  const { state, props, failNextSave } = await calendarEditor()
+  await state.beginCreate()
+  state.title.value = '跨月安排'; state.allDay.value = true
+  state.eventDate.value = '2026-11-30'; state.eventEndDate.value = '2026-12-02'
+  state.location.value = '会议室'; state.notes.value = '第一行\n第二行'
+  failNextSave(); await state.perform(state.save)
+  assert.equal(state.editorOpen.value, true); assert.equal(state.location.value, '会议室'); assert.equal(state.notes.value, '第一行\n第二行')
+  await state.perform(state.save)
+  const item = { ...props.data.suite.events[0] }
+  assert.equal(item.start, new Date('2026-11-30T00:00').toISOString())
+  assert.equal(item.end, new Date('2026-12-03T00:00').toISOString())
+  assert.equal(item.location, '会议室'); assert.equal(item.notes, '第一行\n第二行')
+  await state.edit({ ...item, source: '个人' })
+  assert.equal(state.eventEndDate.value, '2026-12-02')
+  assert.match(state.detailTime({ ...item, source: '个人' }, 'end'), /12月2日/)
+  props.data.suite.events[0].end = new Date('2026-12-02T12:00').toISOString()
+  await state.edit({ ...props.data.suite.events[0], source: '个人' })
+  assert.equal(state.eventEndDate.value, '2026-12-02')
+  assert.match(state.detailTime({ ...props.data.suite.events[0], source: '个人' }, 'end'), /12月2日/)
+  state.location.value = ''; state.notes.value = ''; await state.perform(state.save)
+  assert.equal(Object.hasOwn(props.data.suite.events[0], 'location'), false)
+  assert.equal(Object.hasOwn(props.data.suite.events[0], 'notes'), false)
 })

@@ -4,30 +4,25 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.7.2 · MIT 开源**
+**Windows 10 / 11 x64 · v2.8.0 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.7.2) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.0) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 <table>
   <tr>
-    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.7.2/collection.png"><img src="docs/images/v2.7.2/collection.png" alt="桌面搭子2.7.2实际运行的收纳界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>日历月视图：事项直接显示在日期格里</strong><br /><a href="docs/images/v2.7.2/calendar-agenda.png"><img src="docs/images/v2.7.2/calendar-agenda.png" alt="桌面搭子2.7.2实际运行的日历和彩色日程" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.8.0/collection.png"><img src="docs/images/v2.8.0/collection.png" alt="桌面搭子2.8.0实际运行的收纳界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>日历月视图：跨天安排用连续横条显示</strong><br /><a href="docs/images/v2.8.0/calendar-agenda.png"><img src="docs/images/v2.8.0/calendar-agenda.png" alt="桌面搭子2.8.0实际运行的日历和彩色日程" width="360" /></a></td>
   </tr>
 </table>
 
-本页图片直接截取自 v2.7.2 实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
+本页图片直接截取自 v2.8.0 实际运行窗口。为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
 
-## v2.7.2 更新
+## v2.8.0 更新
 
-- **日程点击即弹出浮窗**：点击月历中的彩色事项直接编辑；点击日期或“+N”在浮窗里查看当天完整安排。新增、编辑都不再接在月历下面。
-- **保存后回到月历**：保存成功、取消或按 Esc 关闭浮窗；保存失败会保留已填写的内容，方便直接重试。
-
-### 延续 v2.7.1 的改进
-
-- **窄窗口也是三列倒数日**：自定义日期和节日都固定每行三列，缩小数字、文字与间距；六个节日只占两排，编辑和删除仍可操作。
-- **事项直接显示在月历格里**：每一天显示彩色事项短条，超过两项显示剩余数量；点击日期在浮窗查看完整列表，继续新增、编辑和选色。
-- **天气等待有明确结束**：短暂断连自动重试一次；失败后结束加载，可以手动刷新，已有缓存会明确标识。
-- **关闭窗口后能从托盘找回**：单击、双击或右键选择“打开桌面搭子”，都会重新显示并展开助手，而不只是恢复收纳框。
+- **月历更接近日历应用**：按周划分日期，补齐相邻月份日期；跨天安排显示为连续横条，跨周时分段延续，不再每天重复一小块。
+- **点击先看详情**：底部圆角浮窗展示事项标题、起止时间、来源、地点和备注；点“编辑日程”再修改，查看时无需面对整张表单。
+- **全天安排可跨多天**：结束日期包含当天；可以安排旅行、课程和连续几天的重要事项。
+- **本地与订阅都能看完整内容**：本地日程可填写地点和多行备注；ICS中的地点、说明也会显示在详情里，订阅继续只读。
 
 ## 它能帮你做什么
 
@@ -36,14 +31,14 @@
 | 文件收纳 | 默认打开“全部”，也可切换应用、文件、图片、影音。支持搜索、筛选、排序和多选分类；拖入文件只添加引用，原文件位置不变。 |
 | 常用项目置顶 | 右键应用、文件或图片选择“置顶”，在全部及所属分类中优先显示，重启后保留；双击打开，右键可取消置顶。 |
 | 待办与提醒 | 按待办、今天、计划、已完成查看事项。点击文字直接改名，点击铃铛设置安排日期、具体时间和提醒。 |
-| 日历与倒数日 | 月历直接显示彩色事项，点击弹出查看或编辑浮窗；添加自己的生日、纪念日和交付日期；同时查看春节、端午、中秋等常用节日的倒数。 |
+| 日历与倒数日 | 月历显示彩色事项和连续跨天横条，点击先看详情，再选择编辑；添加自己的生日、纪念日和交付日期；同时查看春节、端午、中秋等常用节日的倒数。 |
 | 喝水与活动 | 按剩余目标和使用时段分配喝水量，点击水杯记录当前量；活动后点击脊柱图标。两边各有独立的15秒撤销。 |
 | 其他桌面工具 | 便签、世界时钟、多城市天气、专注计时、设备读数，以及面板显隐、透明度、配色和布局备份。 |
 
 ## 快速上手
 
 1. **展开收纳框，置顶常用项目。** 打开软件后进入“全部”。右键常用应用选择“置顶”，以后直接在前面双击打开；文件也可拖入分类栏或列表添加引用。
-2. **把今天的安排放到桌面。** 在待办页添加事项；在日历页点击右上角“+”新增，或点击日期，在浮窗里选择“新建日程”；填写事项、时间并选色。点击月历彩色事项可直接打开编辑浮窗。倒数日会显示近期节日，也能添加自己的重要日期。
+2. **把今天的安排放到桌面。** 在待办页添加事项；在日历页点击右上角“+”新增，或点击日期，在浮窗里选择“新建日程”；填写事项、时间并选色。点击月历彩色事项先看详情，再点击“编辑日程”修改；地点和备注均可选填。倒数日会显示近期节日，也能添加自己的重要日期。
 3. **按自己的节奏设置提醒。** 点击“桌面搭子”右上角的设置按钮，在“健康”里设置每日目标、结束时间与提醒方式。喝水后点水杯，活动后点脊柱图标；误点时在15秒内分别撤销。
 
 希望开机就能用，可在 **设置 → 桌面 → 组件** 开启“开机启动”。点击系统托盘中的“桌面搭子”图标可以重新显示面板。
@@ -52,9 +47,9 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.2/windows-desktop-widgets-2.7.2-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.2/windows-desktop-widgets-2.7.2-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.7.2/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/windows-desktop-widgets-2.8.0-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/windows-desktop-widgets-2.8.0-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.0/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
@@ -64,20 +59,22 @@
 
 <table>
   <tr>
-    <td width="50%" valign="top"><strong>待办：记下一件事，安排时间，再逐项完成</strong><br /><a href="docs/images/v2.7.2/todos.png"><img src="docs/images/v2.7.2/todos.png" alt="实际运行的待办界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.7.2/countdown.png"><img src="docs/images/v2.7.2/countdown.png" alt="实际运行的节日和自定义倒数日网格" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>待办：记下一件事，安排时间，再逐项完成</strong><br /><a href="docs/images/v2.8.0/todos.png"><img src="docs/images/v2.8.0/todos.png" alt="实际运行的待办界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.8.0/countdown.png"><img src="docs/images/v2.8.0/countdown.png" alt="实际运行的倒数日界面" width="360" /></a></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><strong>日程浮窗：点击事项即可编辑，保存回月历</strong><br /><a href="docs/images/v2.7.2/calendar-editor.png"><img src="docs/images/v2.7.2/calendar-editor.png" alt="实际运行的日历事项编辑浮窗" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>便签：随手写下内容，自动保存到本机</strong><br /><a href="docs/images/v2.7.2/notes.png"><img src="docs/images/v2.7.2/notes.png" alt="实际运行的便签编辑界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>事项详情：底部浮窗展示时间、地点和备注</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="实际运行的事项详情界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>编辑日程：修改内容、时间、颜色和跨天日期</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="实际运行的编辑日程界面" width="360" /></a></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.7.2/settings.png"><img src="docs/images/v2.7.2/settings.png" alt="实际运行的健康设置" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>健康面板：查看杯量、已喝与剩余目标</strong><br /><a href="docs/images/v2.7.2/health.png"><img src="docs/images/v2.7.2/health.png" alt="实际运行的喝水与活动面板" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>便签：随手写下内容，自动保存到本机</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="实际运行的便签界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.8.0/settings.png"><img src="docs/images/v2.8.0/settings.png" alt="实际运行的设置界面" width="360" /></a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><strong>健康面板：查看杯量、已喝与剩余目标</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="实际运行的健康面板界面" width="360" /></a></td>
+    <td width="50%" valign="top"><strong>天气：真实读取当前天气与三日预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="实际运行的天气界面" width="360" /></a></td>
   </tr>
 </table>
-
-<p><strong>天气：真实读取当前天气与三日预报</strong><br /><a href="docs/images/v2.7.2/weather.png"><img src="docs/images/v2.7.2/weather.png" alt="实际运行的广州天气与三日预报" width="360" /></a></p>
 
 ## 喝水量怎么算
 
@@ -93,7 +90,11 @@
 
 内置节日资料覆盖 **2026–2035年**，日期依据[香港天文台公历与农历日期对照表](https://www.hko.gov.hk/tc/gts/time/conversion1_text.htm)核对。这里展示的是节日当天与倒数，不是国务院调休或工作日安排。个人倒数日不受内置节日年份表限制。
 
-日历月视图的每个日期格内直接显示最多两条彩色事项短条，超出时显示“+N”。点击彩色事项直接打开编辑浮窗，点击日期或“+N”打开当天完整清单浮窗；保存或取消后回到月历，按 Esc 也可关闭。保存失败时保留输入与错误提示。日程可在本机创建、编辑、选色和删除，也可导入ICS或添加HTTPS日历订阅。订阅为只读合并展示，每30分钟检查更新；导入文件变化后需要重新导入。
+日历按周显示整个月，也显示相邻月份的补齐日期。跨天日程在同一周内连成横条，跨周时分段延续；同一天超过两条时显示“+N”，点击日期或“+N”查看当天完整清单。
+
+点击事项先打开底部详情浮窗，展示起止时间、来源，以及已填写的地点与备注。点击“编辑日程”再修改；保存、取消或按 Esc 返回月历，保存失败保留输入。全天安排的结束日期包含当天。地点与备注以纯文本保存在本机。
+
+日程也可导入ICS或添加HTTPS日历订阅，支持显示其中的地点与说明。订阅为只读合并展示，每30分钟检查更新；导入文件变化后需要重新导入。
 
 ## 升级与本地数据
 
@@ -135,7 +136,7 @@ node tests/calendar-popup.mjs
 
 ## 验证与反馈
 
-v2.7.2已通过145项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px日程浮窗、事项点击、新增编辑、取消不保存、Esc关闭与焦点返回、保存失败保留草稿及重试；同时核对收纳置顶、三列倒数日、待办完成和便签保存；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.7.2)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
+v2.8.0已通过150项单元与契约检查、类型检查和生产构建。本轮真实Electron窗口检查覆盖300px与420px月历和底部浮窗、跨天横条与跨周分段、详情优先、只读来源的地点备注、全天结束日期、创建编辑、取消不保存、Esc关闭与焦点返回，以及保存失败保留全部输入和重试；同时核对收纳置顶、三列倒数日、待办完成和便签保存；截图采用真实时钟与设备采样。更多验证结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.0)。界面截图使用独立数据，不能代表全部硬件条件。本轮未覆盖安装向导覆盖升级、真实多屏热插拔和全天连续运行。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

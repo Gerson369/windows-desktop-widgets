@@ -1,7 +1,7 @@
 export const extraWidgetKinds = ['calendar', 'notes', 'clock', 'countdown', 'focus', 'weather', 'devices'] as const
 export type ExtraWidgetKind = typeof extraWidgetKinds[number]
 export const widgetTitles: Record<ExtraWidgetKind, string> = { calendar:'日历与日程', notes:'快速便签', clock:'世界时钟', countdown:'重要日期', focus:'专注计时', weather:'多地天气', devices:'设备与性能' }
-export interface CalendarEvent { id: string; title: string; start: string; end: string; allDay: boolean; category: 'work' | 'personal'; color?: string }
+export interface CalendarEvent { id: string; title: string; start: string; end: string; allDay: boolean; category: 'work' | 'personal'; color?: string; location?: string; notes?: string }
 export const calendarEventColors = ['#a4dbb6', '#8ab9f1', '#e7b37b', '#cbacf0', '#eea1b6', '#86d6cd'] as const
 export interface CalendarSource { id: string; name: string; enabled: boolean; url?: string; content: string; updatedAt: string }
 export interface Countdown { id: string; title: string; date: string }
@@ -30,6 +30,11 @@ function record(value: unknown): Record<string, unknown> {
 function text(value: unknown, maximum = 120): string {
   if (typeof value !== 'string' || !value.trim() || value.length > maximum) throw new Error(`文字须为 1–${maximum} 个字符。`)
   return value.trim()
+}
+function optionalText(value: unknown, maximum: number): string | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || value.length > maximum) throw new Error(`文字须为不超过 ${maximum} 个字符的文本。`)
+  return value.trim() || undefined
 }
 export function dateKey(value: Date | number): string {
   const date = new Date(value)
@@ -94,7 +99,8 @@ export function validateSuite(value: unknown): WidgetSuite {
     const start = text(event.start,40), end = text(event.end,40)
     if (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(end)<Date.parse(start)) throw new Error('日程起止时间无效。')
     if (event.color !== undefined && (typeof event.color !== 'string' || !/^#[\da-f]{6}$/i.test(event.color))) throw new Error('日程颜色无效。')
-    return {id:text(event.id,160),title:text(event.title),start,end,allDay:event.allDay===true,category:event.category==='work'?'work' as const:'personal' as const,...(event.color ? { color: event.color as string } : {})}
+    const location = optionalText(event.location,300), notes = optionalText(event.notes,4000)
+    return {id:text(event.id,160),title:text(event.title),start,end,allDay:event.allDay===true,category:event.category==='work'?'work' as const:'personal' as const,...(event.color ? { color: event.color as string } : {}),...(location ? {location} : {}),...(notes ? {notes} : {})}
   }))
   let contentSize = 0
   result.sources = identified(list('sources',12).map(value=>{

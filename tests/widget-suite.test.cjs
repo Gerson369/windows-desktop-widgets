@@ -23,6 +23,23 @@ test('suite validates dates, timezones, identifiers, sizes and focus without cha
   assert.throws(()=>suite.validateSuite({...value,countdowns:[{id:'same',title:'a',date:'2026-10-20'},{id:'same',title:'b',date:'2026-10-21'}]}),/重复/)
 })
 
+test('calendar details validate and round-trip without adding fields to old or cleared events',async()=>{
+  const original={id:'meeting',title:'讨论',start:'2026-10-19T09:00:00.000Z',end:'2026-10-19T10:00:00.000Z',allDay:false,category:'work'}
+  const validate=details=>suite.validateSuite({...suite.defaultSuite(),events:[{...original,...details}]}).events[0]
+  assert.deepEqual(validate({}),original)
+  assert.deepEqual(validate({location:' \n ',notes:'\t'}),original)
+  const saved=validate({location:'  会议室 A  ',notes:' 第一行\n第二行 <b>文本</b> '})
+  assert.equal(saved.location,'会议室 A'); assert.equal(saved.notes,'第一行\n第二行 <b>文本</b>')
+  assert.deepEqual(validate(JSON.parse(JSON.stringify(saved))),saved)
+  const api=await calendar
+  assert.deepEqual(api.agenda([saved],[],Date.parse('2026-10-19'),Date.parse('2026-10-20')).events[0],{...saved,source:'工作'})
+  assert.deepEqual(original,{id:'meeting',title:'讨论',start:'2026-10-19T09:00:00.000Z',end:'2026-10-19T10:00:00.000Z',allDay:false,category:'work'})
+  for(const [key,maximum] of [['location',300],['notes',4000]]) {
+    assert.equal(validate({[key]:'字'.repeat(maximum)})[key].length,maximum)
+    for(const value of [null,12,true,[],{},'字'.repeat(maximum+1),' '.repeat(maximum+1)]) assert.throws(()=>validate({[key]:value}),/文本/)
+  }
+})
+
 test('focus resumes after restart, pauses exactly and reaches zero without resetting elapsed time',()=>{
   const initial=suite.defaultSuite().focus
   const running=suite.changeFocus(initial,'start',100000,120)
@@ -81,14 +98,28 @@ test('public URL reads reject local addresses, private networks, IPv4-mapped IPv
 test('calendar expands RRULE, EXDATE and rescheduled exceptions with correct source identity',async()=>{
   const api=await calendar
   const content=ics([
-    event('UID:weekly\r\nDTSTART:20261019T010000Z\r\nDTEND:20261019T020000Z\r\nSUMMARY:Weekly\r\nRRULE:FREQ=DAILY;COUNT=4\r\nEXDATE:20261020T010000Z'),
-    event('UID:weekly\r\nRECURRENCE-ID:20261021T010000Z\r\nDTSTART:20261021T030000Z\r\nDTEND:20261021T040000Z\r\nSUMMARY:Changed')
+    event('UID:weekly\r\nDTSTART:20261019T010000Z\r\nDTEND:20261019T020000Z\r\nSUMMARY:Weekly\r\nLOCATION:Old room\r\nDESCRIPTION:Original notes\r\nRRULE:FREQ=DAILY;COUNT=4\r\nEXDATE:20261020T010000Z'),
+    event('UID:weekly\r\nRECURRENCE-ID:20261021T010000Z\r\nDTSTART:20261021T030000Z\r\nDTEND:20261021T040000Z\r\nSUMMARY:Changed\r\nLOCATION:New room\r\nDESCRIPTION:Updated notes')
   ].join('\r\n'))
   const rows=api.expandCalendar(source(content),Date.parse('2026-10-19'),Date.parse('2026-10-24'))
   assert.equal(rows.length,3)
   assert.deepEqual(rows.map(row=>row.title),['Weekly','Changed','Weekly'])
   assert.equal(rows[1].start,'2026-10-21T03:00:00.000Z')
+  assert.deepEqual(rows.map(row=>[row.location,row.notes]),[['Old room','Original notes'],['New room','Updated notes'],['Old room','Original notes']])
   assert.ok(rows.every(row=>row.source==='工作日历'))
+})
+
+test('calendar imports plain text details with decoded escapes and bounded length',async()=>{
+  const api=await calendar
+  const content=ics([
+    event('UID:plain\r\nDTSTART:20261019T010000Z\r\nDTEND:20261019T020000Z\r\nSUMMARY:Plain\r\nLOCATION:Room\\, A\\; B\r\nDESCRIPTION:第一行\\n第二行 <b>纯文本</b>'),
+    event(`UID:long\r\nDTSTART:20261019T030000Z\r\nDTEND:20261019T040000Z\r\nSUMMARY:Long\r\nLOCATION:${'地'.repeat(301)}\r\nDESCRIPTION:${'记'.repeat(4001)}`),
+    event('UID:old\r\nDTSTART:20261019T050000Z\r\nDTEND:20261019T060000Z\r\nSUMMARY:Old')
+  ].join('\r\n'))
+  const rows=api.expandCalendar(source(content),Date.parse('2026-10-19'),Date.parse('2026-10-20'))
+  assert.equal(rows[0].location,'Room, A; B'); assert.equal(rows[0].notes,'第一行\n第二行 <b>纯文本</b>')
+  assert.equal(rows[1].location,'地'.repeat(300)); assert.equal(rows[1].notes,'记'.repeat(4000))
+  assert.equal(Object.hasOwn(rows[2],'location'),false); assert.equal(Object.hasOwn(rows[2],'notes'),false)
 })
 
 test('calendar keeps all-day end exclusive and filters cancelled recurrence instances',async()=>{
