@@ -1,5 +1,30 @@
 const test=require('node:test'),assert=require('node:assert/strict')
 const {loadTypeScript}=require('./load-typescript.cjs')
+test('settings version reads the current Electron app version through main and preload on each request',async()=>{
+ const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm')
+ const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)
+ let registration
+ function visit(node){
+  if(ts.isCallExpression(node) && node.expression.getText(ast)==='ipcMain.handle' && node.arguments[0]?.text==='system:version')registration=node
+  ts.forEachChild(node,visit)
+ }
+ visit(ast)
+ assert.ok(registration,'main registers the runtime version handler')
+ const handlers=new Map(),invocations=[]
+ let runtimeVersion='7.8.9-runtime-a',reads=0,toolbox
+ const app={getVersion:()=>{reads++;return runtimeVersion}}
+ vm.runInNewContext(ts.transpileModule(registration.getText(ast),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,{app,ipcMain:{handle:(channel,handler)=>handlers.set(channel,handler)}})
+ loadTypeScript('src/preload/index.ts',{electron:{
+  contextBridge:{exposeInMainWorld:(name,api)=>{assert.equal(name,'toolbox');toolbox=api}},
+  ipcRenderer:{invoke:async(channel,...args)=>{invocations.push(channel);const handler=handlers.get(channel);assert.ok(handler,`registered handler for ${channel}`);return handler({},...args)}},
+  webUtils:{}
+ }})
+ assert.equal(await toolbox.system.version(),runtimeVersion)
+ runtimeVersion='8.0.1-runtime-b'
+ assert.equal(await toolbox.system.version(),runtimeVersion)
+ assert.equal(reads,2)
+ assert.deepEqual(invocations,['system:version','system:version'])
+})
 test('health changes reach every panel and keep a stable visible flood sequence',()=>{
  const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm')
  const source=fs.readFileSync('src/main/index.ts','utf8'),ast=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true)

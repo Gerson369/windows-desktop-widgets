@@ -135,6 +135,7 @@ const toolbox = {
     applyCategoryLayout: (confirmed: true) => invoke<{ backupId: string; applied: number; plan: DesktopIconArrangePlan }>('desktop:applyCategoryLayout', confirmed)
   },
   system: {
+    version: () => invoke<string>('system:version'),
     toggleDesktopIcons: () => invoke<{ success: boolean; hidden: boolean }>('system:toggleDesktopIcons'),
     refreshIcons: () => invoke<boolean>('system:refreshIcons'),
     captureScreen: () => invoke<{ dataUrl: string }>('system:captureScreen'),

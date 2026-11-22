@@ -1929,6 +1929,7 @@ const registerIpc = (): void => {
     broadcastData()
     return data
   })
+  ipcMain.handle('system:version', () => app.getVersion())
   ipcMain.handle('system:toggleDesktopIcons', () => toggleDesktopIcons())
   ipcMain.handle('system:refreshIcons', async () => {
     try {

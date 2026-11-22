@@ -15,6 +15,7 @@ const api = toolbox
 const props = defineProps<{ section?: string }>()
 const emit = defineEmits<{ section: [value: string]; return: [] }>()
 const data = ref<AppData | null>(null)
+const appVersion = ref('读取中…')
 const statuses = reactive<Record<string, string>>({ 设置: '正在加载设置…' })
 const lastMessage = ref('正在加载设置…')
 const message = computed({
@@ -82,6 +83,7 @@ function backupDate(value: string) {
   return new Date(value).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 onMounted(async () => {
+  void api.system.version().then(version => { appVersion.value = version }).catch(() => { appVersion.value = '读取失败' })
   try { data.value = await api.data.get(); dispose = api.data.onChanged(next => { data.value = next }); message.value = '已保存' }
   catch (reason) { message.value = '加载失败：' + String(reason) }
 })
@@ -150,7 +152,7 @@ onBeforeUnmount(() => dispose?.())
     </div>
     <p v-else class="settings-loading">正在加载设置…</p>
     <footer class="settings-save-status" :class="{ 'has-error': /失败|未保存/.test(displayMessage) }" role="status" aria-live="polite">
-      <AssistantIcon :name="/失败|未保存/.test(displayMessage) ? 'bell' : 'check'"/><span>{{ displayMessage }}</span><button v-if="retry" class="settings-link" :disabled="busy" @click="perform(retry!)">重试</button><small>更改自动保存</small>
+      <AssistantIcon :name="/失败|未保存/.test(displayMessage) ? 'bell' : 'check'"/><span>{{ displayMessage }}</span><button v-if="retry" class="settings-link" :disabled="busy" @click="perform(retry!)">重试</button><small class="settings-version" title="当前运行版本">版本 {{ appVersion }}</small>
     </footer>
   </section>
 </template>

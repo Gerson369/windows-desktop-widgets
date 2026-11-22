@@ -56,10 +56,10 @@
 .settings-panel .backup-row>div{overflow-wrap:anywhere}.backup-row button{flex-shrink:0}
 .settings-panel .settings-save-status{display:flex;align-items:center;flex:0 0 auto;gap:8px;margin:0;padding:6px 12px;border-top:1px solid var(--settings-border);background:#20262b;font-size:11px;min-height:30px}
 .settings-save-status>svg{width:16px;height:16px;color:var(--settings-accent);flex-shrink:0}.settings-save-status>span{overflow-wrap:anywhere;min-width:0}
-.settings-save-status small{margin-left:auto;flex-shrink:0;font-size:10px;color:var(--settings-muted)}
+.settings-save-status small{margin-left:auto;flex-shrink:0;font-size:11px;color:var(--settings-muted);white-space:nowrap}
 .settings-save-status.has-error>span,.settings-save-status.has-error>svg{color:#ffcabf}
 .settings-loading{padding:20px;font-size:12px}
-@media(max-width:360px){.settings-body{padding:8px 10px}.settings-panel .settings-save-status{padding:6px 10px}.settings-save-status small{display:none}.desktop-settings-tabs{margin-inline:10px;gap:4px}}
+@media(max-width:360px){.settings-body{padding:8px 10px}.settings-panel .settings-save-status{padding:6px 10px}.desktop-settings-tabs{margin-inline:10px;gap:4px}}
 @media(prefers-reduced-motion:reduce){.settings-panel *::after{transition:none}}
 
 .settings-panel .suite-settings > .settings-card,.settings-panel .organizer-compact > .settings-card{margin-bottom:0}

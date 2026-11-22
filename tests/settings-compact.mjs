@@ -87,11 +87,15 @@ async function screenshot(target, reader, name) {
 }
 async function layout(name) {
   const result = await evaluate(`(()=>{
-    const body=document.querySelector('.settings-body'),r=body.getBoundingClientRect(),footer=document.querySelector('.settings-save-status').getBoundingClientRect();
+    const body=document.querySelector('.settings-body'),r=body.getBoundingClientRect(),footerNode=document.querySelector('.settings-save-status'),footer=footerNode.getBoundingClientRect();
+    const version=footerNode.querySelector('.settings-version'),v=version.getBoundingClientRect(),versionStyle=getComputedStyle(version),footerStyle=getComputedStyle(footerNode),status=footerNode.querySelector(':scope>span'),s=status.getBoundingClientRect();
     const navs=[...document.querySelectorAll('.settings-tabs,.desktop-settings-tabs')].filter(nav=>nav.getClientRects().length);
-    return {name:${JSON.stringify(name)},width:innerWidth,overflow:body.scrollWidth>body.clientWidth+1 || document.documentElement.scrollWidth>innerWidth+1,footerClear:r.bottom<=footer.top+1,navs:navs.map(nav=>{const b=nav.getBoundingClientRect();return {top:b.top,bottom:b.bottom,outsideBody:!body.contains(nav),aboveBody:b.bottom<=r.top+1,hit:[...nav.querySelectorAll('button')].every(button=>{const c=button.getBoundingClientRect(),hit=document.elementFromPoint(c.left+c.width/2,c.top+c.height/2);return hit===button || button.contains(hit)})}}),offenders:[...body.querySelectorAll('*')].filter(node=>node.getClientRects().length && (node.getBoundingClientRect().right>r.right+1 || node.getBoundingClientRect().left<r.left-1)).slice(0,8).map(node=>({tag:node.tagName,class:String(node.className),text:node.textContent.slice(0,45)}))};
+    return {name:${JSON.stringify(name)},width:innerWidth,overflow:body.scrollWidth>body.clientWidth+1 || document.documentElement.scrollWidth>innerWidth+1,footerClear:r.bottom<=footer.top+1,version:{text:version.textContent.trim(),visible:version.getClientRects().length>0 && versionStyle.visibility==='visible' && Number(versionStyle.opacity)>0,whiteSpace:versionStyle.whiteSpace,oneLine:v.height<=parseFloat(versionStyle.lineHeight)+1,inside:v.left>=footer.left && v.right<=footer.right+1 && v.top>=footer.top && v.bottom<=footer.bottom+1,rightAligned:Math.abs(v.right-(footer.right-parseFloat(footerStyle.paddingRight)-parseFloat(footerStyle.borderRightWidth)))<1,noOverlap:s.right+4<=v.left,statusHasSpace:s.width>0 && s.height>0 && status.scrollWidth<=status.clientWidth+1,box:{left:v.left,right:v.right,top:v.top,bottom:v.bottom}},navs:navs.map(nav=>{const b=nav.getBoundingClientRect();return {top:b.top,bottom:b.bottom,outsideBody:!body.contains(nav),aboveBody:b.bottom<=r.top+1,hit:[...nav.querySelectorAll('button')].every(button=>{const c=button.getBoundingClientRect(),hit=document.elementFromPoint(c.left+c.width/2,c.top+c.height/2);return hit===button || button.contains(hit)})}}),offenders:[...body.querySelectorAll('*')].filter(node=>node.getClientRects().length && (node.getBoundingClientRect().right>r.right+1 || node.getBoundingClientRect().left<r.left-1)).slice(0,8).map(node=>({tag:node.tagName,class:String(node.className),text:node.textContent.slice(0,45)}))};
   })()`)
   assert.equal(result.overflow, false, JSON.stringify(result)); assert.equal(result.footerClear, true)
+  assert.equal(result.version.text,`版本 ${report.runtimeVersion}`)
+  assert.equal(result.version.whiteSpace,'nowrap')
+  for(const property of ['visible','oneLine','inside','rightAligned','noOverlap','statusHasSpace'])assert.equal(result.version[property],true,`${name} ${property}: ${JSON.stringify(result.version)}`)
   assert.deepEqual(result.offenders, [], JSON.stringify(result.offenders))
   for (const nav of result.navs) { assert.equal(nav.outsideBody, true); assert.equal(nav.aboveBody, true); assert.equal(nav.hit, true) }
   report.layouts.push(result)
@@ -103,6 +107,7 @@ async function scrollLayout(name) {
   await settle()
   const after = await layout(name + '/bottom')
   assert.deepEqual(after.navs.map(({ top, bottom }) => ({ top, bottom })), before.navs.map(({ top, bottom }) => ({ top, bottom })))
+  assert.deepEqual(after.version.box,before.version.box)
   await evaluate(`document.querySelector('.settings-body').scrollTop=0`); await settle()
 }
 async function previewLayout() {
@@ -131,6 +136,9 @@ try {
   await until(() => evaluate(`Boolean(document.querySelector('[aria-label="设置"]'))`))
   await evaluate(`document.querySelector('[aria-label="设置"]').click()`)
   await until(() => evaluate(`Boolean(document.querySelector('.settings-body'))`))
+  report.runtimeVersion=await evaluate('window.toolbox.system.version()')
+  assert.equal(report.runtimeVersion,require('../package.json').version)
+  await until(() => evaluate(`document.querySelector('.settings-version')?.textContent.trim()===${JSON.stringify(`版本 ${report.runtimeVersion}`)}`))
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.settings-tabs button')].map(button=>button.textContent.trim())`), ['健康', '外观', '桌面'])
   await select('.settings-tabs', '外观')
   const oldOpacity = (await get()).settings.desktopModuleOpacity
@@ -184,6 +192,7 @@ try {
     }
   }
   report.checks.push('300/420px keep three primary pages and all four desktop groups within width; both navigation rows remain fixed, clickable and unobscured during scrolling')
+  report.checks.push('runtime version matches the application manifest and stays visible, single-line and right-aligned beside the save status across tabs and scrolling at 300/420px')
   report.checks.push('20px previews keep two columns within 180px; seven expanded zones use a single compact row with counts and controls aligned')
 
   await select('.desktop-settings-tabs', '收纳')

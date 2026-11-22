@@ -44,6 +44,8 @@ Menu.buildFromTemplate=(template)=>{
 const testClock=path.join(process.env.GERSON_E2E_DATA_DIRECTORY,'clock')
 const realNow=Date.now
 Date.now=()=>fs.existsSync(testClock)?Number(fs.readFileSync(testClock,'utf8')):realNow()
+// Match Electron's package-entry bootstrap when this host starts as a script.
+app.setVersion(require(path.join(root,'package.json')).version)
 app.setAppPath(root)
 const failSave=path.join(process.env.GERSON_E2E_DATA_DIRECTORY,'fail-save')
 const handle=ipcMain.handle.bind(ipcMain)
