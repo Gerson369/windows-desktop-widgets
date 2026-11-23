@@ -61,8 +61,8 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/%E6%A1%8C%E9%9D%A2%E6%90%AD%E5%AD%90-2.8.8-%E5%AE%89%E8%A3%85%E7%89%88.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/%E6%A1%8C%E9%9D%A2%E6%90%AD%E5%AD%90-2.8.8-%E5%85%8D%E5%AE%89%E8%A3%85%E7%89%88.exe) | 下载后直接运行，不经过安装向导。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/windows-desktop-widgets-2.8.8-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/windows-desktop-widgets-2.8.8-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
 | 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
