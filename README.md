@@ -10,34 +10,28 @@
 
 ## 画面截图
 
-以下为各版本的实际窗口截图，点击图片可查看原图。
+点击任一截图可查看原图。前两张为桌面搭子和桌面收纳的实机截图，后续图片展示各版本的功能与设置。
 
 <table>
   <tr>
+    <td width="25%" valign="top" align="center"><strong>桌面搭子</strong><br /><a href="docs/images/v2.8.8/assistant.png"><img src="docs/images/v2.8.8/assistant.png" alt="桌面搭子" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面收纳</strong><br /><a href="docs/images/v2.8.8/collection.png"><img src="docs/images/v2.8.8/collection.png" alt="桌面收纳" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>当天清单</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="当天清单（v2.8.1）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>日程详情</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="日程详情（v2.8.0）" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>编辑日程</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="编辑日程（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
   </tr>
   <tr>
-    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>桌面便签</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="桌面便签（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="喝水与活动（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
   </tr>
   <tr>
     <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="外观设置（v2.8.2）" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>收纳分区</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="收纳分区（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>组件设置</strong><br /><a href="docs/images/v2.8.2/settings-components.png"><img src="docs/images/v2.8.2/settings-components.png" alt="组件设置（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>版本查看</strong><br /><a href="docs/images/v2.8.4/settings-version.png"><img src="docs/images/v2.8.4/settings-version.png" alt="版本查看（v2.8.4）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
+    <td></td>
   </tr>
 </table>
-
-[查看 300 px 窄窗口设置截图](docs/images/v2.8.4/settings-version-300.png)
-
-新增的设置版本号截图来自v2.8.4的隔离实际窗口，开发宿主按Electron官方启动流程，从应用清单初始化版本。正式包另核对了内置清单、构建文件和哈希，未操作个人正式窗口。专注计时与倒数日截图来自v2.8.3；其余设置与收纳截图来自v2.8.2，当天清单来自v2.8.1，其他界面来自v2.8.0。
-
-为避免公开私人内容，文件、待办、便签和日程使用本机实际创建的公开演示资料；桌面面板的时钟采用截图当日系统时间，设备读数来自本机，没有替换成固定样本。外观设置中的时钟和文件是界面已标明的效果预览样例。天气截图使用当时实际读取的广州天气和三日预报，没有用固定数值替代。
 
 ## 最近更新
 
