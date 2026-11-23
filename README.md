@@ -6,16 +6,34 @@
 
 **Windows 10 / 11 x64 · v2.8.8 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.8) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [画面截图](#画面截图) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.8) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+
+## 画面截图
+
+以下为各版本的实际窗口截图，点击图片可查看原图。
 
 <table>
   <tr>
-    <td width="25%" valign="top" align="center"><strong>桌面收纳</strong><br /><a href="docs/images/v2.8.2/collection.png"><img src="docs/images/v2.8.2/collection.png" alt="桌面收纳（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>待办事项</strong><br /><a href="docs/images/v2.8.0/todos.png"><img src="docs/images/v2.8.0/todos.png" alt="待办事项（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>日历月视图</strong><br /><a href="docs/images/v2.8.0/calendar-agenda.png"><img src="docs/images/v2.8.0/calendar-agenda.png" alt="日历月视图（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>节日与倒数日</strong><br /><a href="docs/images/v2.8.3/countdown.png"><img src="docs/images/v2.8.3/countdown.png" alt="节日与倒数日（v2.8.3）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>当天清单</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="当天清单（v2.8.1）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>日程详情</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="日程详情（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>编辑日程</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="编辑日程（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
+  </tr>
+  <tr>
+    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面便签</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="桌面便签（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="喝水与活动（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
+  </tr>
+  <tr>
+    <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="外观设置（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>收纳分区</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="收纳分区（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>组件设置</strong><br /><a href="docs/images/v2.8.2/settings-components.png"><img src="docs/images/v2.8.2/settings-components.png" alt="组件设置（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>版本查看</strong><br /><a href="docs/images/v2.8.4/settings-version.png"><img src="docs/images/v2.8.4/settings-version.png" alt="版本查看（v2.8.4）" width="175" /></a></td>
   </tr>
 </table>
+
+[查看 300 px 窄窗口设置截图](docs/images/v2.8.4/settings-version-300.png)
 
 新增的设置版本号截图来自v2.8.4的隔离实际窗口，开发宿主按Electron官方启动流程，从应用清单初始化版本。正式包另核对了内置清单、构建文件和哈希，未操作个人正式窗口。专注计时与倒数日截图来自v2.8.3；其余设置与收纳截图来自v2.8.2，当天清单来自v2.8.1，其他界面来自v2.8.0。
 
@@ -68,33 +86,6 @@
 | 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
-
-## 真实界面
-
-以下为各版本的实际窗口截图，点击图片可查看原图。
-
-<table>
-  <tr>
-    <td width="25%" valign="top" align="center"><strong>当天清单</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="当天清单（v2.8.1）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>日程详情</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="日程详情（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>编辑日程</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="编辑日程（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
-  </tr>
-  <tr>
-    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>桌面便签</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="桌面便签（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="喝水与活动（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
-  </tr>
-  <tr>
-    <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="外观设置（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>收纳分区</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="收纳分区（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>组件设置</strong><br /><a href="docs/images/v2.8.2/settings-components.png"><img src="docs/images/v2.8.2/settings-components.png" alt="组件设置（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>版本查看</strong><br /><a href="docs/images/v2.8.4/settings-version.png"><img src="docs/images/v2.8.4/settings-version.png" alt="版本查看（v2.8.4）" width="175" /></a></td>
-  </tr>
-</table>
-
-[查看 300 px 窄窗口设置截图](docs/images/v2.8.4/settings-version-300.png)
 
 ## 喝水量怎么算
 
