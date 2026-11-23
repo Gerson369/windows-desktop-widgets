@@ -10,8 +10,10 @@
 
 <table>
   <tr>
-    <td width="50%" valign="top"><strong>桌面收纳：常用项目置顶，双击就能打开</strong><br /><a href="docs/images/v2.8.2/collection.png"><img src="docs/images/v2.8.2/collection.png" alt="桌面搭子2.8.2实际运行的收纳界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>日历月视图：跨天安排用连续横条显示</strong><br /><a href="docs/images/v2.8.0/calendar-agenda.png"><img src="docs/images/v2.8.0/calendar-agenda.png" alt="桌面搭子2.8.0实际运行的日历和彩色日程" width="360" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面收纳</strong><br /><a href="docs/images/v2.8.2/collection.png"><img src="docs/images/v2.8.2/collection.png" alt="桌面收纳（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>待办事项</strong><br /><a href="docs/images/v2.8.0/todos.png"><img src="docs/images/v2.8.0/todos.png" alt="待办事项（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>日历月视图</strong><br /><a href="docs/images/v2.8.0/calendar-agenda.png"><img src="docs/images/v2.8.0/calendar-agenda.png" alt="日历月视图（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>节日与倒数日</strong><br /><a href="docs/images/v2.8.3/countdown.png"><img src="docs/images/v2.8.3/countdown.png" alt="节日与倒数日（v2.8.3）" width="175" /></a></td>
   </tr>
 </table>
 
@@ -69,36 +71,30 @@
 
 ## 真实界面
 
-下面为各图所标版本的软件实际窗口截图。点击图片可查看原图。
-
-<p><strong>设置版本：底栏右侧显示当前运行版本</strong><br /><a href="docs/images/v2.8.4/settings-version.png"><img src="docs/images/v2.8.4/settings-version.png" alt="v2.8.4隔离实际设置窗口，底栏显示版本2.8.4" width="360" /></a><br /><a href="docs/images/v2.8.4/settings-version-300.png">查看300px窄窗口</a></p>
-
-<p><strong>当天清单：每项一行，点击名称查看完整详情</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="v2.8.1实际运行的单行日程清单" width="360" /></a></p>
+以下为各版本的实际窗口截图，点击图片可查看原图。
 
 <table>
   <tr>
-    <td width="50%" valign="top"><strong>待办：记下一件事，安排时间，再逐项完成</strong><br /><a href="docs/images/v2.8.0/todos.png"><img src="docs/images/v2.8.0/todos.png" alt="实际运行的待办界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>倒数日：节日与自己的重要日子紧凑排列</strong><br /><a href="docs/images/v2.8.3/countdown.png"><img src="docs/images/v2.8.3/countdown.png" alt="实际运行的倒数日界面" width="360" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>当天清单</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="当天清单（v2.8.1）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>日程详情</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="日程详情（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>编辑日程</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="编辑日程（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><strong>事项详情：底部浮窗展示时间、地点和备注</strong><br /><a href="docs/images/v2.8.0/calendar-detail.png"><img src="docs/images/v2.8.0/calendar-detail.png" alt="实际运行的事项详情界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>编辑日程：修改内容、时间、颜色和跨天日期</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="实际运行的编辑日程界面" width="360" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面便签</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="桌面便签（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="喝水与活动（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><strong>外观设置：缩小预览，透明度、颜色与字号集中调整</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="v2.8.2实际运行的紧凑外观设置" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>收纳设置：分区名称、数量与开关放在同一行</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="v2.8.2实际运行的紧凑分区设置" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>便签：随手写下内容，自动保存到本机</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="实际运行的便签界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>设置：喝水目标、时段和间隔集中调整</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="实际运行的设置界面" width="360" /></a></td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top"><strong>健康面板：查看杯量、已喝与剩余目标</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="实际运行的健康面板界面" width="360" /></a></td>
-    <td width="50%" valign="top"><strong>天气：真实读取当前天气与三日预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="实际运行的天气界面" width="360" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="外观设置（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>收纳分区</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="收纳分区（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>组件设置</strong><br /><a href="docs/images/v2.8.2/settings-components.png"><img src="docs/images/v2.8.2/settings-components.png" alt="组件设置（v2.8.2）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>版本查看</strong><br /><a href="docs/images/v2.8.4/settings-version.png"><img src="docs/images/v2.8.4/settings-version.png" alt="版本查看（v2.8.4）" width="175" /></a></td>
   </tr>
 </table>
 
-组件显隐、显示器选择和桌面行为集中在[组件设置](docs/images/v2.8.2/settings-components.png)。[专注计时实际界面](docs/images/v2.8.3/focus.png)展示正常开始后的25:00。
+[查看 300 px 窄窗口设置截图](docs/images/v2.8.4/settings-version-300.png)
 
 ## 喝水量怎么算
 
