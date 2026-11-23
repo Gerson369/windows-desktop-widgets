@@ -10,26 +10,27 @@
 
 ## 画面截图
 
-点击任一截图可查看原图。前两张为桌面搭子和桌面收纳的实机截图，后续图片展示各版本的功能与设置。
+以下是 v2.8.8 的实际窗口截图，点击可查看原图。
 
 <table>
   <tr>
-    <td width="25%" valign="top" align="center"><strong>桌面搭子</strong><br /><a href="docs/images/v2.8.8/assistant.png"><img src="docs/images/v2.8.8/assistant.png" alt="桌面搭子" width="175" /></a></td>
     <td width="25%" valign="top" align="center"><strong>桌面收纳</strong><br /><a href="docs/images/v2.8.8/collection.png"><img src="docs/images/v2.8.8/collection.png" alt="桌面收纳" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>当天清单</strong><br /><a href="docs/images/v2.8.1/calendar-day-list-420.png"><img src="docs/images/v2.8.1/calendar-day-list-420.png" alt="当天清单（v2.8.1）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>编辑日程</strong><br /><a href="docs/images/v2.8.0/calendar-editor.png"><img src="docs/images/v2.8.0/calendar-editor.png" alt="编辑日程（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面搭子 · 待办</strong><br /><a href="docs/images/v2.8.8/assistant.png"><img src="docs/images/v2.8.8/assistant.png" alt="桌面搭子 · 待办" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>节日与倒数日</strong><br /><a href="docs/images/v2.8.8/countdown.png"><img src="docs/images/v2.8.8/countdown.png" alt="节日与倒数日" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.8/focus.png"><img src="docs/images/v2.8.8/focus.png" alt="专注计时" width="175" /></a></td>
   </tr>
   <tr>
-    <td width="25%" valign="top" align="center"><strong>桌面便签</strong><br /><a href="docs/images/v2.8.0/notes.png"><img src="docs/images/v2.8.0/notes.png" alt="桌面便签（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>专注计时</strong><br /><a href="docs/images/v2.8.3/focus.png"><img src="docs/images/v2.8.3/focus.png" alt="专注计时（v2.8.3）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>天气预报</strong><br /><a href="docs/images/v2.8.0/weather.png"><img src="docs/images/v2.8.0/weather.png" alt="天气预报（v2.8.0）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.0/health.png"><img src="docs/images/v2.8.0/health.png" alt="喝水与活动（v2.8.0）" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>收纳右键菜单</strong><br /><a href="docs/images/v2.8.8/collection-menu.png"><img src="docs/images/v2.8.8/collection-menu.png" alt="收纳右键菜单" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.8/appearance.png"><img src="docs/images/v2.8.8/appearance.png" alt="外观设置" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>桌面设置</strong><br /><a href="docs/images/v2.8.8/desktop-settings.png"><img src="docs/images/v2.8.8/desktop-settings.png" alt="桌面设置" width="175" /></a></td>
+    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.8/health-settings.png"><img src="docs/images/v2.8.8/health-settings.png" alt="健康设置" width="175" /></a></td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td width="25%" valign="top" align="center"><strong>外观设置</strong><br /><a href="docs/images/v2.8.2/settings-appearance.png"><img src="docs/images/v2.8.2/settings-appearance.png" alt="外观设置（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>收纳分区</strong><br /><a href="docs/images/v2.8.2/settings-organizer.png"><img src="docs/images/v2.8.2/settings-organizer.png" alt="收纳分区（v2.8.2）" width="175" /></a></td>
-    <td width="25%" valign="top" align="center"><strong>健康设置</strong><br /><a href="docs/images/v2.8.2/settings-health.png"><img src="docs/images/v2.8.2/settings-health.png" alt="健康设置（v2.8.2）" width="175" /></a></td>
-    <td></td>
+    <td width="50%" valign="top" align="center"><strong>收起后的组件布局</strong><br /><a href="docs/images/v2.8.8/collapsed-widgets.png"><img src="docs/images/v2.8.8/collapsed-widgets.png" alt="收起后的组件布局" width="350" /></a></td>
+    <td width="50%" valign="top" align="center"><strong>喝水与活动</strong><br /><a href="docs/images/v2.8.8/health.png"><img src="docs/images/v2.8.8/health.png" alt="喝水与活动" width="350" /></a></td>
   </tr>
 </table>
 
