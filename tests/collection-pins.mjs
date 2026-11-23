@@ -133,6 +133,10 @@ try {
 
   await menuPin(evaluate, files['Z-daily-app.lnk'], true)
   await menuPin(evaluate, files['Z-favorite.png'], true)
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.file-pin')).backgroundColor`), 'rgba(0, 0, 0, 0)')
+  for (const selector of ['.collection-sort select', '.project-switch select']) {
+    assert.ok(await evaluate(`(()=>{const field=document.querySelector(${JSON.stringify(selector)});if(!field)return true;return getComputedStyle(field).backgroundColor==='rgba(10, 13, 14, 0.3)'})()`))
+  }
   await until(() => evaluate('Array.from(document.querySelectorAll(".file-item")).slice(0,2).every(item=>item.classList.contains("pinned"))'))
   assert.deepEqual(new Set(await evaluate('Array.from(document.querySelectorAll(".file-item")).slice(0,2).map(item=>item.dataset.path)')), new Set([files['Z-daily-app.lnk'], files['Z-favorite.png']]))
   await verifyCompactTabs(evaluate, page)
@@ -161,6 +165,67 @@ try {
   await until(() => evaluate(`document.querySelector('.file-item')?.dataset.path === ${JSON.stringify(files['Z-favorite.png'])}`))
   assert.deepEqual((await evaluate('window.toolbox.data.get()')).desktopPinnedPaths, [files['Z-favorite.png']])
   check('cancel pin removes only that reference and retains the other category pin')
+  for (const pinned of (await evaluate('window.toolbox.data.get()')).desktopPinnedPaths) await evaluate(`window.toolbox.desktop.setPinned(${JSON.stringify(pinned)},false)`)
+  const reorderPaths = Array.from({length:12}, (_,index) => path.join(directory,'references',`reorder-${String(index).padStart(2,'0')}.txt`))
+  for (const file of reorderPaths) await fs.writeFile(file,'pin order fixture')
+  await evaluate(`window.toolbox.organizer.assignDesktopItems(${JSON.stringify(reorderPaths)},'all')`)
+  await selectTab(evaluate,'all')
+  for (const file of reorderPaths.slice(0,8)) await evaluate(`window.toolbox.desktop.setPinned(${JSON.stringify(file)},true)`)
+  await evaluate(`document.querySelector('.collection-body').scrollTop=200`)
+  const scrollBefore = await evaluate(`document.querySelector('.collection-body').scrollTop`)
+  assert.ok(scrollBefore>0)
+  await menuPin(evaluate,reorderPaths[8],true)
+  assert.equal(await evaluate(`document.querySelector('.collection-body').scrollTop`),scrollBefore)
+  const beginPinDrag = (from, to) => evaluate(`(() => {
+    const items = [...document.querySelectorAll('.file-item')];
+    const source = items.find(item => item.dataset.path === ${JSON.stringify(from)});
+    const target = items.find(item => item.dataset.path === ${JSON.stringify(to)});
+    const transfer = new DataTransfer();
+    transfer.setDragImage = preview => {
+      const style = getComputedStyle(preview);
+      window.pinDragImage = { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow, parts: [...preview.children].map(node => node.localName), label: preview.lastElementChild.textContent };
+    };
+    const rect = target.getBoundingClientRect();
+    source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+    const body = document.querySelector('.collection-body');
+    window.movePinDrag = (x, y) => body.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: rect.left + x * rect.width, clientY: rect.top + y * rect.height }));
+    window.finishPinDrag = type => source.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  })()`)
+  await beginPinDrag(reorderPaths[8], reorderPaths[0])
+  const dragImage = await evaluate('window.pinDragImage')
+  assert.equal(dragImage.background, 'rgba(0, 0, 0, 0)')
+  assert.equal(dragImage.border, '0px')
+  assert.equal(dragImage.shadow, 'none')
+  assert.match(dragImage.parts[0], /^(img|svg)$/)
+  assert.equal(dragImage.parts[1], 'span')
+  assert.equal(dragImage.label, 'reorder-08.txt')
+  await evaluate(`window.movePinDrag(.02, .5)`)
+  assert.equal(await evaluate(`Boolean(document.querySelector('.pin-placeholder'))`), false)
+  await evaluate(`window.movePinDrag(.5, .5)`)
+  await until(() => evaluate(`Boolean(document.querySelector('.pin-placeholder'))`))
+  await evaluate(`window.movePinDrag(1.02, .5)`)
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.pin-placeholder')).order`), '-1')
+  assert.equal((await evaluate('window.toolbox.data.get()')).desktopPinnedPaths[0], reorderPaths[0])
+  await evaluate(`window.finishPinDrag('drop'); window.finishPinDrag('dragend'); delete window.finishPinDrag`)
+  await until(() => evaluate(`!document.querySelector('.pin-placeholder')`))
+  await until(()=>evaluate(`window.toolbox.data.get().then(data=>data.desktopPinnedPaths[0]===${JSON.stringify(reorderPaths[8])})`))
+  await until(()=>evaluate(`document.querySelector('.file-item').dataset.path===${JSON.stringify(reorderPaths[8])}`))
+  const savedOrder=(await evaluate('window.toolbox.data.get()')).desktopPinnedPaths
+  await stop()
+  ;({evaluate,page}=await start())
+  assert.deepEqual((await evaluate('window.toolbox.data.get()')).desktopPinnedPaths,savedOrder)
+  await until(()=>evaluate(`document.querySelector('.file-item').dataset.path===${JSON.stringify(reorderPaths[8])}`))
+  await beginPinDrag(reorderPaths[8], reorderPaths[7])
+  await evaluate(`window.movePinDrag(.5, .5)`)
+  await until(() => evaluate(`getComputedStyle(document.querySelector('.pin-placeholder')).order === '17'`))
+  await evaluate(`window.finishPinDrag('dragend')`)
+  await until(() => evaluate(`!document.querySelector('.pin-placeholder')`))
+  assert.deepEqual((await evaluate('window.toolbox.data.get()')).desktopPinnedPaths,savedOrder)
+  await evaluate(`Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})))`)
+  await beginPinDrag(reorderPaths[8], reorderPaths[7])
+  await evaluate(`window.movePinDrag(.5, .5); window.finishPinDrag('drop'); window.finishPinDrag('dragend')`)
+  await until(() => evaluate(`window.toolbox.data.get().then(data => data.desktopPinnedPaths.at(-1) === ${JSON.stringify(reorderPaths[8])})`))
+  check('pin keeps scroll position; dragging ninth pin before first persists and survives restart')
   report.ok = true
 } catch (error) {
   report.error = String(error)

@@ -46,11 +46,13 @@ export function normalizeCollectionSorts(source: unknown): AppSettings['collecti
   })) as AppSettings['collectionSorts']
 }
 
-export function sortCollectionItems<T extends CollectionItem>(items: T[], sort: CollectionSort): T[] {
+export function sortCollectionItems<T extends CollectionItem>(items: T[], sort: CollectionSort, pinnedPaths: string[] = []): T[] {
+  const pinnedOrder = new Map(pinnedPaths.map((path, index) => [path, index]))
   const compare = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' }).compare
   const direction = sort.direction === 'desc' ? -1 : 1
   return [...items].sort((a, b) => {
     if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
+    if (a.pinned && b.pinned && pinnedOrder.has(a.path) && pinnedOrder.has(b.path)) return pinnedOrder.get(a.path)! - pinnedOrder.get(b.path)!
     if (sort.by === 'createdAt' || sort.by === 'modifiedAt') {
       const left = Date.parse(a[sort.by] || ''), right = Date.parse(b[sort.by] || '')
       if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1

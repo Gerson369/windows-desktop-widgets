@@ -7,7 +7,7 @@ function Get-ReleaseSha256([string]$Path) {
 }
 $source = $PSScriptRoot
 $package = Get-Content -LiteralPath (Join-Path $source 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$artifactPrefix = "$($package.build.productName)-$($package.version)-x64"
+$artifactPrefix = "$($package.build.productName)-$($package.version)"
 $workspace = Join-Path $env:TEMP ("gerson-release-" + [guid]::NewGuid().ToString('N'))
 $staging = Join-Path $workspace 'app'
 $prepackaged = Join-Path $workspace 'prepackaged-win-x64'
@@ -30,6 +30,8 @@ foreach ($module in @('lowdb','graceful-fs','is-promise','lodash','pify','steno'
 robocopy (Join-Path $source 'node_modules\electron\dist') $prepackaged /E /XJ /XF '*.log' | Out-Null
 if ($LASTEXITCODE -gt 7) { throw '复制 Electron 运行时失败。' }
 Move-Item -LiteralPath (Join-Path $prepackaged 'electron.exe') -Destination (Join-Path $prepackaged 'GersonToolbox.exe')
+& (Join-Path $source 'scripts\set-windows-icon.ps1') -Executable (Join-Path $prepackaged 'GersonToolbox.exe') -Icon (Join-Path $source 'resources\app-icon.ico')
+
 $resources = Join-Path $prepackaged 'resources'
 New-Item -ItemType Directory -Path (Join-Path $resources 'native') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $source 'native\DesktopLayoutBridge\GersonDesktopLayoutBridge.exe') -Destination (Join-Path $resources 'native\GersonDesktopLayoutBridge.exe')
@@ -41,10 +43,10 @@ if ($LASTEXITCODE -ne 0) { throw 'ASAR 打包失败。' }
 if ($LASTEXITCODE -ne 0) { throw "Windows 发布失败。中间文件保留在 $workspace" }
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $files = @()
-foreach ($suffix in @('setup.exe', 'portable.exe', 'setup.exe.blockmap')) {
+foreach ($suffix in @('安装版.exe', '免安装版.exe', '安装版.exe.blockmap')) {
   $file = Join-Path $workspace "release\$artifactPrefix-$suffix"
   if (-not (Test-Path -LiteralPath $file)) {
-    if ($suffix -ne 'setup.exe.blockmap') { throw "缺失发布文件：$file" }
+    if ($suffix -ne '安装版.exe.blockmap') { throw "缺失发布文件：$file" }
     continue
   }
   Copy-Item -LiteralPath $file -Destination (Join-Path $destination ([IO.Path]::GetFileName($file))) -Force

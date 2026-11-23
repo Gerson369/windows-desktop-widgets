@@ -66,7 +66,7 @@ test('tray click, double-click and menu reopen the assistant rather than only th
  class Notification { constructor(value){notifications.push(value)} show(){} }
  const icon={isEmpty:()=>false,resize:()=>icon}
  const context={module:{exports:null},tray:null,Tray,Notification,nativeImage:{createFromPath:()=>icon,createEmpty:()=>icon,createFromDataURL:()=>icon},
-  app:{isPackaged:false,getAppPath:()=>'.'},join:(...parts)=>parts.join('/'),existsSync:()=>true,Menu:{buildFromTemplate:items=>items},
+  appIconPath:()=> 'resources/tray-icon.png',existsSync:()=>true,Menu:{buildFromTemplate:items=>items},
   store:{data:{settings:{desktopCollected:false}}},showMainWindow:async section=>{opened.push(section)},
   setInterval:()=>({unref(){}}),console}
  vm.runInNewContext(ts.transpileModule(declaration.parent.getText(mainAst)+';module.exports=createTray',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)

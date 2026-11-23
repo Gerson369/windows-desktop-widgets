@@ -108,7 +108,7 @@ const toolbox = {
     moveData: (directory: string) => invoke<AppData>('config:moveData', directory)
   },
   desktop: {
-    setPinned: (path: string, pinned: boolean) => invoke<AppData>('desktop:setPinned', path, pinned),
+    setPinned: (path: string, pinned: boolean, targetPath?: string, after = false) => invoke<AppData>('desktop:setPinned', path, pinned, targetPath, after),
     progress: () => invoke<import('../main/desktop-collection').CollectionProgress>('desktop:progress'),
     onProgress: (callback: (progress: import('../main/desktop-collection').CollectionProgress) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: import('../main/desktop-collection').CollectionProgress) => callback(progress)

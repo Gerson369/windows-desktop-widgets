@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, shallowReactive, watch } from 'vue'
+import { onBeforeUnmount, reactive, shallowReactive, watch } from 'vue'
+import { previewWidgetOpacity } from '../widget-opacity-preview'
 import { toolbox } from '../toolbox'
 import { createSaveQueue } from '../save-queue'
 import AssistantIcon from './AssistantIcon.vue'
@@ -16,18 +17,13 @@ const retries = shallowReactive<Record<SaveGroup, (() => Promise<unknown>) | nul
 const revisions = { style: 0, transparency: 0 }
 const saveGroups: SaveGroup[] = ['style', 'transparency']
 const queue = createSaveQueue()
+onBeforeUnmount(() => previewWidgetOpacity(null))
 watch(() => props.data.suite, suite => {
   if (!dirty.style) Object.assign(draft, { background: suite.background, textColor: suite.textColor, fontSize: suite.fontSize })
 })
 watch(() => props.data.settings.desktopModuleOpacity, opacity => {
   if (!dirty.transparency) draft.transparency = 100 - opacity
 })
-const previewStyle = computed(() => ({
-  '--preview-background': draft.background,
-  '--preview-text': draft.textColor,
-  '--preview-opacity': (100 - draft.transparency) / 100,
-  '--preview-font': draft.fontSize + 'px'
-}))
 function reportStatus() {
   const error = saveGroups.map(group => errors[group]).filter(Boolean).join('；')
   emit('status', error ? '保存失败：' + error : saveGroups.some(group => pending[group]) ? '正在保存…' : '已保存')
@@ -40,7 +36,10 @@ async function commit(group: SaveGroup, action: () => Promise<unknown>) {
   reportStatus()
   try {
     await queue(action)
-    if (current === revisions[group]) { dirty[group] = false; retries[group] = null }
+    if (current === revisions[group]) {
+      dirty[group] = false; retries[group] = null
+      if (group === 'transparency') previewWidgetOpacity(null)
+    }
   } catch (reason) {
     if (current === revisions[group]) {
       errors[group] = reason instanceof Error ? reason.message : '外观未保存，请重试'
@@ -68,28 +67,25 @@ function saveTransparency() {
   const opacity = 100 - draft.transparency
   void commit('transparency', () => toolbox.settings.update({ desktopModuleOpacity: opacity }))
 }
+function previewTransparency() {
+  dirty.transparency = true
+  ++revisions.transparency
+  previewWidgetOpacity(100 - draft.transparency)
+  emit('status', '预览中，松开后保存')
+}
 function stepFont(step: number) {
   draft.fontSize = Math.max(12, Math.min(20, draft.fontSize + step))
   saveStyle()
 }
 </script>
 <template>
-  <section class="appearance-preview settings-card" :style="previewStyle" aria-label="组件效果预览">
-    <div class="preview-heading"><h3>效果预览</h3><span>实时预览 · 示例内容</span></div>
-    <div class="preview-widgets">
-      <div class="preview-widget preview-collection"><b>桌面收纳</b><div class="preview-files">
-        <span><AssistantIcon name="folder"/>工作资料</span><span><AssistantIcon name="file"/>文档</span>
-      </div></div>
-      <div class="preview-widget preview-assistant"><b>桌面搭子</b><strong>10:24</strong><span><i/>整理工作资料</span><span><i/>查看会议安排</span></div>
-    </div>
-  </section>
   <section class="settings-card appearance-controls">
     <h3>组件样式</h3>
     <div class="transparency-setting">
       <label for="widget-transparency">透明度 <output for="widget-transparency">{{ draft.transparency }}%</output></label>
-      <input id="widget-transparency" v-model.number="draft.transparency" type="range" min="10" max="85" step="1" aria-describedby="transparency-hint" @input="dirty.transparency = true" @change="saveTransparency"/>
+      <input id="widget-transparency" v-model.number="draft.transparency" type="range" min="10" max="85" step="1" aria-describedby="transparency-hint" @input="previewTransparency" @change="saveTransparency"/>
       <div class="slider-ends"><span>更实</span><span>更透</span></div>
-      <p id="transparency-hint" class="settings-hint">仅调整背景，文字与图标保持清晰。松开后保存。</p>
+      <p id="transparency-hint" class="settings-hint">拖动实时预览，松开后保存。文字与图标保持清晰。</p>
     </div>
     <label class="settings-row color-row">背景颜色 <span class="color-controls">
       <input v-model="draft.background" type="color" aria-label="组件背景颜色" @input="dirty.style = true" @change="saveStyle"/>
@@ -109,14 +105,8 @@ function stepFont(step: number) {
   <p class="settings-hint appearance-scope"><AssistantIcon name="check"/>同时应用到桌面收纳与桌面搭子。</p>
 </template>
 <style scoped>
-.appearance-preview{position:relative;overflow:hidden;background:#30383e!important;isolation:isolate}
-.appearance-preview::before{content:"";position:absolute;inset:0;z-index:-1;background:#485159;clip-path:polygon(30% 0,55% 0,100% 65%,100% 95%)}
-.preview-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}.preview-heading span{font-size:10px;color:#c5d6ce}
-.preview-widgets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch}
-.preview-widget{padding:8px;border:1px solid #7c898b;border-radius:8px;background:color-mix(in srgb,var(--preview-background) calc(var(--preview-opacity)*100%),transparent);color:var(--preview-text);font-size:var(--preview-font);min-width:0}
-.preview-widget b{font-size:1em;line-height:1.2;font-weight:600;display:block;white-space:nowrap}.preview-files{display:flex;gap:6px;justify-content:space-between;margin-top:10px}.preview-files span{font-size:.7em;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:4px}.preview-files svg{width:20px;height:22px}.preview-assistant strong{display:block;font-size:1.4em;line-height:1.1;margin:3px 0;font-variant-numeric:tabular-nums}.preview-assistant>span{font-size:.7em;line-height:1.4;display:flex;align-items:center;gap:4px;margin-top:3px;white-space:nowrap}.preview-assistant i{width:8px;height:8px;border:1px solid currentColor;border-radius:2px;flex-shrink:0}
 .transparency-setting{padding:10px 0 8px;border-bottom:1px solid var(--settings-border)}.transparency-setting label{display:flex;justify-content:space-between}.transparency-setting output{font-variant-numeric:tabular-nums}.transparency-setting input{width:100%;margin:6px 0 3px}.slider-ends{display:flex;justify-content:space-between;color:var(--settings-muted);font-size:11px}.transparency-setting p{margin-top:5px}
 .color-controls{display:flex;align-items:center;gap:8px;min-width:0}.color-controls input[type=color]{width:38px;height:30px;padding:2px;cursor:pointer}.color-controls .hex-input{width:92px;font-size:12px}
 .font-stepper{display:flex;align-items:stretch}.font-stepper input{width:48px;text-align:center;border-radius:0;padding:4px!important;appearance:textfield}.font-stepper input::-webkit-inner-spin-button{appearance:none}.font-stepper button{border-radius:0;padding:4px 10px}.font-stepper button:first-child{border-radius:6px 0 0 6px;border-right:0}.font-stepper button:last-child{border-radius:0 6px 6px 0;border-left:0}.appearance-scope{display:flex;align-items:center;gap:6px;margin:0;padding:0 2px}.appearance-scope svg{width:16px;height:16px}
-@media(max-width:340px){.preview-widget{padding:6px}.preview-files{gap:4px}.preview-heading span{font-size:9px}.color-controls{gap:5px}.color-controls .hex-input{width:80px}}
+@media(max-width:340px){.color-controls{gap:5px}.color-controls .hex-input{width:80px}}
 </style>

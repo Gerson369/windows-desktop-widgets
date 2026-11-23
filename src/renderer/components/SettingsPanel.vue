@@ -90,7 +90,7 @@ onMounted(async () => {
 onBeforeUnmount(() => dispose?.())
 </script>
 <template>
-  <section class="settings-panel" aria-label="助手设置">
+  <section class="settings-panel" :class="{ 'is-appearance': section === 'appearance' }" aria-label="助手设置">
     <nav class="settings-tabs" aria-label="设置分类">
       <button v-for="item in sections" :key="item.id" :aria-pressed="section === item.id" @click="selectSection(item.id)">{{ item.label }}</button>
     </nav>

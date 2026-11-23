@@ -48,3 +48,5 @@
 !/scripts/verify-wellness-footer.mjs
 
 !/scripts/verify-settings-redesign.mjs
+
+!/scripts/set-windows-icon.ps1

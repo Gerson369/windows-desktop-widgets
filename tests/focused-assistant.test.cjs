@@ -553,7 +553,7 @@ test('collection starts in all, pins through its menu, preserves file opening an
   menuForApp();await state.chooseFileAction('pin')
   assert.deepEqual(calls,[{path:app.path,pinned:true}])
   assert.equal(state.visibleItems.value[0].path,app.path)
-  assert.equal(body.scrollTop,0)
+  assert.equal(body.scrollTop,120)
   assert.equal(state.messageFailed.value,false)
   menuForApp();await state.chooseFileAction('open')
   assert.deepEqual(opened,[app.path])

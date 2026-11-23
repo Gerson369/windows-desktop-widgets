@@ -38,7 +38,7 @@ const hover = useWidgetHover(() => Boolean(data.value?.settings.desktopHoverExpa
 const collapsed = computed(() => Boolean(moduleState.value?.collapsed) && !hover.expanded.value)
 const tabs = computed(() => collectionTabs.map(tab => ({ ...tab, items: data.value ? collectionItems(data.value, tab.id) : [] })))
 const currentSort = computed(() => data.value?.settings.collectionSorts[activeTab.value] || { by: 'name' as const, direction: 'asc' as const })
-const visibleItems = computed(() => sortCollectionItems((tabs.value.find(tab => tab.id === activeTab.value)?.items || []).filter(item => (data.value?.suite.showSystemIcons !== false || !item.path.startsWith('shell:')) && (typeFilter.value==='all' || item.category===typeFilter.value || (typeFilter.value==='folder' && item.isDirectory)) && item.name.toLocaleLowerCase().includes(search.value.toLocaleLowerCase())), currentSort.value))
+const visibleItems = computed(() => sortCollectionItems((tabs.value.find(tab => tab.id === activeTab.value)?.items || []).filter(item => (data.value?.suite.showSystemIcons !== false || !item.path.startsWith('shell:')) && (typeFilter.value==='all' || item.category===typeFilter.value || (typeFilter.value==='folder' && item.isDirectory)) && item.name.toLocaleLowerCase().includes(search.value.toLocaleLowerCase())), currentSort.value, data.value?.desktopPinnedPaths))
 const alpha = computed(() => (data.value?.settings.desktopModuleOpacity ?? 46) / 100)
 let disposeData: (() => void) | undefined
 let disposeProgress: (() => void) | undefined
@@ -136,7 +136,7 @@ async function contextMenu(event: MouseEvent, item: CollectionItem) {
   selectedPath.value = item.path
   fileMenu.value = { item, x: Math.max(8,Math.min(event.clientX,window.innerWidth-176)), y: Math.max(8,Math.min(event.clientY,window.innerHeight-180)) }
   await nextTick()
-  document.querySelector<HTMLButtonElement>('.file-context-menu button')?.focus()
+  document.querySelector<HTMLButtonElement>('.file-context-menu button')?.focus({ preventScroll: true })
 }
 async function chooseFileAction(action: string) {
   const item = fileMenu.value?.item
@@ -148,11 +148,12 @@ async function chooseFileAction(action: string) {
     if (action === 'reveal') await perform(() => api.files.reveal(item.path))
     if (action === 'trash') await trashSelected()
     if (action === 'pin') await perform(async () => {
+      const body = document.querySelector('.collection-body')
+      const scrollTop = body?.scrollTop || 0
       data.value = await api.desktop.setPinned(item.path, !item.pinned)
       message.value = item.pinned ? '已取消置顶' : '已置顶，显示在当前分类最前面'
       await nextTick()
-      const body = document.querySelector('.collection-body')
-      if (body) body.scrollTop = 0
+      if (body) body.scrollTop = scrollTop
     })
   } catch (error) { message.value = error instanceof Error ? error.message : '操作未完成' }
 }
@@ -161,7 +162,7 @@ function menuKeydown(event: KeyboardEvent) {
   event.preventDefault()
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('.file-context-menu button:not(:disabled)')]
   const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
-  buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus()
+  buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus({ preventScroll: true })
 }
 async function loadIcons(refresh = new Set<string>()) {
   const pending = visibleItems.value.filter(item => !item.path.startsWith('shell:') && (!icons.value[item.path] || refresh.has(item.path)) && !loadingIcons.has(item.path))
@@ -187,11 +188,127 @@ async function openFile(path: string) {
   if (error) throw new Error(error)
 }
 function dragStart(event: DragEvent, path: string) {
+  draggedPath.value = path
+  const card = event.currentTarget as HTMLElement
+  const grid = card.closest<HTMLElement>('.collection-files')
+  for (const animation of pinAnimations.values()) animation.cancel()
+  pinAnimations.clear()
+  pinGrid = grid
+  pinSlots = grid ? measurePinSlots(grid) : []
+  sourceSlot = pinSlots.findIndex(slot => slot.path === path)
   const item = visibleItems.value.find(item => item.path === path)
   if (item && !selectedPaths.value.has(path)) selectItem(item)
   event.dataTransfer?.setData('application/x-gerson-desktop-items', JSON.stringify([...selectedPaths.value]))
   event.dataTransfer?.setData('application/x-gerson-desktop-item', path)
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    setCollectionDragImage(event.dataTransfer, card)
+  }
+}
+function setCollectionDragImage(transfer: DataTransfer, card: HTMLElement) {
+  const icon = card.querySelector(':scope > img, :scope > svg')
+  const name = card.querySelector(':scope > span')
+  if (!icon || !name) return
+  const rect = card.getBoundingClientRect()
+  const preview = document.createElement('div')
+  preview.className = 'collection-drag-image'
+  preview.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px`
+  preview.append(icon.cloneNode(true), name.cloneNode(true))
+  card.parentElement?.appendChild(preview)
+  transfer.setDragImage(preview, rect.width / 2, 20)
+  requestAnimationFrame(() => preview.remove())
+}
+const draggedPath = ref('')
+const previewIndex = ref(-1)
+let pinGrid: HTMLElement | null = null
+let pinSlots: ReturnType<typeof measurePinSlots> = []
+let sourceSlot = -1
+let savingPinDrop = false
+const pinAnimations = new Map<HTMLElement, Animation>()
+
+function measurePinSlots(grid: HTMLElement) {
+  const origin = grid.getBoundingClientRect()
+  return [...grid.querySelectorAll<HTMLElement>('.file-item.pinned')].map(element => {
+    const rect = element.getBoundingClientRect()
+    return { path: element.dataset.path!, x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
+  })
+}
+
+function setPinPreview(index: number) {
+  if (index === previewIndex.value) return
+  const animate = pinGrid && !matchMedia('(prefers-reduced-motion: reduce)').matches
+  const previous = animate ? [...pinGrid!.querySelectorAll<HTMLElement>('.file-item.pinned')]
+    .filter(element => element.dataset.path !== draggedPath.value)
+    .map(element => ({ element, rect: element.getBoundingClientRect() })) : []
+  previewIndex.value = index
+  void nextTick(() => {
+    if (previewIndex.value !== index) return
+    for (const { element, rect } of previous) {
+      pinAnimations.get(element)?.cancel()
+      const next = element.getBoundingClientRect()
+      if (rect.x === next.x && rect.y === next.y) continue
+      const animation = element.animate(
+        [{ transform: `translate(${rect.x - next.x}px, ${rect.y - next.y}px)` }, { transform: 'none' }],
+        { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }
+      )
+      pinAnimations.set(element, animation)
+      animation.onfinish = () => pinAnimations.delete(element)
+    }
+  })
+}
+
+function endCollectionDrag() {
+  if (savingPinDrop) return
+  setPinPreview(-1)
+  draggedPath.value = ''
+  pinGrid = null
+  pinSlots = []
+  sourceSlot = -1
+}
+function leaveCollection(event: DragEvent) {
+  const body = event.currentTarget as HTMLElement
+  if (body.contains(event.relatedTarget as Node | null)) return
+  const bounds = body.getBoundingClientRect()
+  if (event.clientX < bounds.left || event.clientX >= bounds.right || event.clientY < bounds.top || event.clientY >= bounds.bottom) setPinPreview(-1)
+}
+function previewOrder(item: CollectionItem, index: number) {
+  if (previewIndex.value < 0) return undefined
+  if (item.path === draggedPath.value) return previewIndex.value * 2 + (previewIndex.value > sourceSlot ? 1 : -1)
+  return index * 2
+}
+function dragOverCollection(event: DragEvent) {
+  if (sourceSlot < 0 || !pinGrid) return
+  const origin = pinGrid.getBoundingClientRect()
+  const x = event.clientX - origin.left
+  const y = event.clientY - origin.top
+  // Measure fixed slots at pickup so animated cards never change their own hit targets.
+  const index = pinSlots.findIndex(slot =>
+    Math.abs(x - slot.x - slot.width / 2) <= slot.width * .38 &&
+    Math.abs(y - slot.y - slot.height / 2) <= slot.height * .38
+  )
+  if (index >= 0) setPinPreview(index)
+  else if (y > pinSlots.at(-1)!.y + pinSlots.at(-1)!.height + 2) setPinPreview(-1)
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+async function dropOnCollection(event: DragEvent) {
+  if (sourceSlot < 0) {
+    await drop(event, activeTab.value)
+    return
+  }
+  const index = previewIndex.value
+  const source = draggedPath.value
+  const target = pinSlots[index]?.path
+  if (!target || index === sourceSlot) return
+  savingPinDrop = true
+  try {
+    await perform(async () => {
+      data.value = await api.desktop.setPinned(source, true, target, index > sourceSlot)
+      message.value = '已调整置顶顺序'
+    })
+  } finally {
+    savingPinDrop = false
+    endCollectionDrag()
+  }
 }
 async function drop(event: DragEvent, id: CollectionTab) {
   dropTab.value = ''
@@ -255,8 +372,8 @@ onBeforeUnmount(() => { disposeProgress?.();disposeData?.(); document.removeEven
       </nav>
         <label class="collection-search"><AssistantIcon name="search"/><input v-model="search" aria-label="搜索当前分类" placeholder="搜索当前分类"/><button v-if="search" aria-label="清除搜索" @click="search = ''"><AssistantIcon name="close"/></button></label>
         <div class="collection-sort"><span>{{ selectedPaths.size ? `已选择 ${selectedPaths.size} 项` : `${visibleItems.length} 个项目` }}</span><select v-if="selectedPaths.size > 1" aria-label="批量分类" value="" @change="perform(() => classifySelection($event))"><option value="" disabled>分类到…</option><option v-for="tab in collectionCategories" :key="tab.id" :value="tab.id">{{ tab.label }}</option></select><select aria-label="排序方式" :value="`${currentSort.by}:${currentSort.direction}`" @change="perform(() => changeSort($event))"><option value="modifiedAt:desc">最近修改</option><option value="modifiedAt:asc">修改最早</option><option value="createdAt:desc">最新创建</option><option value="createdAt:asc">创建最早</option><option value="name:asc">名称 A → Z</option><option value="name:desc">名称 Z → A</option><option v-if="activeTab !== 'apps'" value="type:asc">文件类型 ↑</option><option v-if="activeTab !== 'apps'" value="type:desc">文件类型 ↓</option></select></div>
-        <div class="collection-sort"><select v-model="typeFilter" aria-label="内容类型筛选"><option value="all">全部类型</option><option value="folder">文件夹</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音乐 / 音频</option><option value="document">文档</option></select><small>拖入文件即可收纳</small></div><section class="collection-body" :aria-label="tabs.find(tab => tab.id === activeTab)?.label" @dragover.prevent @drop.prevent="drop($event, activeTab as CollectionTab)">
-          <div v-if="visibleItems.length" class="collection-files" role="listbox" aria-label="分类项目"><div v-for="item in visibleItems" :key="item.path" class="file-item" :class="{ selected: selectedPaths.has(item.path), pinned: item.pinned }" role="option" :aria-selected="selectedPaths.has(item.path)" tabindex="0" :data-path="item.path" :title="item.name + (item.pinned ? '（已置顶）' : '')" :draggable="renamingPath !== item.path" @click="selectItem(item, $event)" @focus="selectedPath = item.path" @contextmenu.prevent="contextMenu($event,item)" @dragstart="dragStart($event, item.path)" @dblclick="perform(() => openFile(item.path))" @keyup.enter="!renamingPath && perform(() => openFile(item.path))"><img v-if="icons[item.path] && !failedIcons[item.path]" :src="icons[item.path]" alt="" @error="failedIcons[item.path]=true"/><AssistantIcon v-else data-icon-fallback :name="item.path.startsWith('shell:') ? 'recycle' : 'file'"/><i v-if="item.pinned" class="file-pin" title="已置顶" aria-label="已置顶"><AssistantIcon name="pin"/></i><input v-if="renamingPath === item.path" v-model="renameDraft" class="rename-input" aria-label="新文件名" maxlength="255" @click.stop @dblclick.stop @keydown.stop @keyup.enter.stop="saveRename(item)" @keyup.esc.stop="renamingPath = ''" @blur="saveRename(item)"/><span v-else>{{ item.name }}</span><small v-if="renamingPath===item.path && message && messageFailed" class="rename-error" role="alert">{{message}}</small></div></div>
+        <div class="collection-sort"><select v-model="typeFilter" aria-label="内容类型筛选"><option value="all">全部类型</option><option value="folder">文件夹</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音乐 / 音频</option><option value="document">文档</option></select><small>拖入文件即可收纳</small></div><section class="collection-body" :aria-label="tabs.find(tab => tab.id === activeTab)?.label" @dragover.prevent="dragOverCollection" @dragleave="leaveCollection" @drop.prevent="dropOnCollection">
+          <div v-if="visibleItems.length" class="collection-files" role="listbox" aria-label="分类项目"><div v-for="(item, index) in visibleItems" :key="item.path" class="file-item" :class="{ selected: selectedPaths.has(item.path), pinned: item.pinned, 'pin-placeholder': previewIndex >= 0 && item.path === draggedPath }" :style="{ order: previewOrder(item, index) }" role="option" :aria-selected="selectedPaths.has(item.path)" tabindex="0" :data-path="item.path" :title="item.name + (item.pinned ? '（已置顶）' : '')" :draggable="renamingPath !== item.path" @click="selectItem(item, $event)" @focus="selectedPath = item.path" @contextmenu.prevent="contextMenu($event,item)" @dragstart="dragStart($event, item.path)" @dragend="endCollectionDrag" @dblclick="perform(() => openFile(item.path))" @keyup.enter="!renamingPath && perform(() => openFile(item.path))"><img v-if="icons[item.path] && !failedIcons[item.path]" :src="icons[item.path]" alt="" @error="failedIcons[item.path]=true"/><AssistantIcon v-else data-icon-fallback :name="item.path.startsWith('shell:') ? 'recycle' : 'file'"/><i v-if="item.pinned" class="file-pin" title="已置顶" aria-label="已置顶"><AssistantIcon name="pin"/></i><input v-if="renamingPath === item.path" v-model="renameDraft" class="rename-input" aria-label="新文件名" maxlength="255" @click.stop @dblclick.stop @keydown.stop @keyup.enter.stop="saveRename(item)" @keyup.esc.stop="renamingPath = ''" @blur="saveRename(item)"/><span v-else>{{ item.name }}</span><small v-if="renamingPath===item.path && message && messageFailed" class="rename-error" role="alert">{{message}}</small></div></div>
           <p v-else class="collection-empty">{{ search || typeFilter!=='all' ? '没有符合当前条件的项目，请清除搜索或筛选。' : '这个分类还没有项目' }}</p>
         </section>
       <footer class="collection-footer"><span v-if="footerMessage" :role="footerFailed?'alert':'status'" :title="footerMessage">{{ footerMessage }}</span><span v-else>{{ data?.settings.desktopCollected ? '已收纳 · 新文件自动分类' : '原桌面已显示 · 点击顶部整理按钮可重新收纳' }}</span><span v-if="!footerMessage">F2 改名</span></footer>
@@ -267,17 +384,21 @@ onBeforeUnmount(() => { disposeProgress?.();disposeData?.(); document.removeEven
 </template>
 
 <style scoped>
-.collection-files .file-pin{position:absolute;top:2px;right:2px;display:grid;place-items:center;width:16px;height:16px;border-radius:3px;background:#25342ce8;color:#c1efd1}.collection-files .file-pin svg{width:12px;height:12px}
+.collection-files .file-item.pin-placeholder{border:1px dashed var(--widget-accent);background:#b8e1ca12}.pin-placeholder>*{visibility:hidden}
+.collection-files :global(.collection-drag-image){position:fixed;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 3px;pointer-events:none;background:transparent;border:0;box-shadow:none;text-align:center}
+.collection-files :global(.collection-drag-image > img),.collection-files :global(.collection-drag-image > svg){width:32px;height:32px;object-fit:contain;flex-shrink:0}
+.collection-files :global(.collection-drag-image > span){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;font-size:calc(var(--widget-font-size,14px) - 2px);line-height:15px;color:var(--widget-text,#f4f7f6)}
+.collection-files .file-pin{position:absolute;top:2px;right:2px;display:grid;place-items:center;width:16px;height:16px;border-radius:3px;background:transparent;color:#c1efd1}.collection-files .file-pin svg{width:12px;height:12px}
 .rename-error{font-size:10px;color:#ffd0c6;overflow-wrap:anywhere;line-height:1.4}
 :global(html), :global(body), :global(#app) { width:100%; height:100%; margin:0; overflow:hidden; background:transparent !important; }
 .desktop-collection { display:flex; flex-direction:column; width:100%; height:100%; overflow:hidden; border:1px solid #ffffff32; border-radius:var(--widget-radius,14px); background:rgba(30,37,42,var(--collection-alpha)); color:#f4f7f6; font-family:'Microsoft YaHei UI',sans-serif; font-size:12px; }
 button,input { font:inherit; color:inherit; }button { cursor:pointer; }button:disabled { opacity:.45; cursor:default; }button:focus-visible,input:focus-visible { outline:2px solid #addcc0; outline-offset:-2px; }svg { width:16px; height:16px; flex-shrink:0; }
 .collection-header { display:flex; align-items:center; flex:0 0 36px; gap:9px; padding:0 10px; -webkit-app-region:no-drag; touch-action:none; user-select:none; cursor:move; }.collection-header > svg { color:#b8ddc7; }.collection-header b { white-space:nowrap; font-size:13px; font-weight:600; }.total-count { color:#d1dbd8; font-size:11px; font-variant-numeric:tabular-nums; margin-right:auto; }.collection-header button { display:grid; place-items:center; width:26px; height:28px; border:0; border-radius:8px; background:transparent; -webkit-app-region:no-drag; }.collection-header button:hover { background:#ffffff16; }
-.project-switch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 12px 6px;color:#d1dbd8;font-size:11px}.project-switch select{min-width:0;max-width:75%;padding:5px;background:#26352f;color:inherit;border:1px solid #ffffff28;border-radius:3px;font:inherit}.desktop-collection :deep(.zone-window.embedded){flex:1;min-height:0}
+.project-switch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 12px 6px;color:#d1dbd8;font-size:11px}.project-switch select{min-width:0;max-width:75%;padding:5px;background:var(--input);color:inherit;border:1px solid #ffffff28;border-radius:3px;font:inherit}.desktop-collection :deep(.zone-window.embedded){flex:1;min-height:0}
 .collection-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); flex:0 0 33px; margin:0 10px; border-bottom:1px solid var(--widget-line,#d9e8e32b); gap:3px; }.collection-tabs button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border-radius:8px 8px 0 0; min-width:0; border:0; border-bottom:2px solid transparent; background:transparent; color:#d1dbd8; padding:0; line-height:14px; white-space:nowrap; }.collection-tabs button:hover { color:#fff; background:#ffffff0b; }.collection-tabs .active { color:#d4efdf; border-bottom-color:#b8e1ca; background:#b8e1ca12; }.collection-tabs small { font-size:9px; line-height:10px; font-variant-numeric:tabular-nums; }.collection-tabs .drop-target { background:#a4dbb633; outline:1px solid #a4dbb6; }
 .collection-search { display:flex; align-items:center; flex:0 0 29px; min-width:0; gap:6px; margin:6px 10px 4px; padding:0 8px; border:1px solid #d9e8e31c; border-radius:9px; background:#10201938; color:#cfdbd5; }.collection-search svg { width:13px; height:13px; }.collection-search input { flex:1; min-width:0; width:0; height:28px; padding:0; border:0; background:transparent; caret-color:#b7e5c7; }.collection-search input::placeholder { color:#c1cec6; }.collection-search button { display:grid; place-items:center; flex:0 0 22px; width:22px; height:22px; padding:0; border:0; background:transparent; }
 .collection-body { flex:1; min-height:0; overflow:auto; padding:2px 8px 6px; scrollbar-width:thin; scrollbar-color:#b6c7bd66 transparent; }.collection-files { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:start; gap:2px; }.collection-files .file-item { position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; min-height:76px; padding:4px 3px; border:1px solid transparent; border-radius:10px; background:transparent; }.collection-files .file-item:hover,.collection-files .file-item:focus-visible,.collection-files .file-item.selected { border-color:#ffffff30; background:#ffffff14; }.collection-files img,.collection-files svg { width:32px; height:32px; object-fit:contain; flex-shrink:0; }.collection-files span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; width:100%; overflow:hidden; overflow-wrap:anywhere; text-align:center; line-height:15px; font-size:11px; }.collection-empty { margin:32px 0; text-align:center; color:#d3ded8; }
 .collection-todos { flex:1; min-height:0; overflow:hidden; }.collection-footer { display:flex; justify-content:space-between; gap:10px; flex:0 0 auto; padding:6px 12px; font-size:10px; color:#cfdbd4; }.collection-footer [role=alert] { color:#ffcec7; line-height:1.5; }::selection { color:#fff; background:#47614f; }
-.collection-sort { display:flex; justify-content:space-between; align-items:center; gap:6px; min-width:0; padding:0 10px 4px; font-size:10px; color:#d1dbd8; }.collection-sort select { min-width:0; max-width:145px; border:0; background:#26352f; border-radius:7px; padding:4px 6px; color:#e4eee7; font:inherit; }.rename-input { width:100%; min-width:0; height:27px; padding:2px; border:1px solid #b7dfc7; background:#162b21; color:white; text-align:center; font-size:11px; }
+.collection-sort { display:flex; justify-content:space-between; align-items:center; gap:6px; min-width:0; padding:0 10px 4px; font-size:10px; color:#d1dbd8; }.collection-sort select { min-width:0; max-width:145px; border:0; background:var(--input); border-radius:7px; padding:4px 6px; color:#e4eee7; font:inherit; }.rename-input { width:100%; min-width:0; height:27px; padding:2px; border:1px solid #b7dfc7; background:#162b21; color:white; text-align:center; font-size:11px; }
 .file-context-menu { position:fixed; z-index:20; width:164px; padding:4px; border:1px solid #718b78; border-radius:10px; background:#25342c; color:#eef4ef; }.file-context-menu button { display:flex; align-items:center; justify-content:space-between; width:100%; height:32px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:inherit; font:inherit; text-align:left; }.file-context-menu button:hover:not(:disabled),.file-context-menu button:focus-visible { background:#ffffff18; }.file-context-menu button:last-child { border-top:1px solid #ffffff20; border-radius:0; }.file-context-menu small { color:#c1d3c6; }
 </style>

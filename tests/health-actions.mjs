@@ -37,6 +37,7 @@ async function complete(kind) {
   await health(`document.querySelector('${button(kind)}').click()`)
   await until(async () => { const next = (await state()).undo?.[kind]; return next && next.id !== previousId })
   await until(() => health(`Boolean(document.querySelector('${undoButton(kind)}:not(:disabled)'))`))
+  assert.equal(await health(`getComputedStyle(document.querySelector('${undoButton(kind)}')).backgroundColor`), 'rgba(0, 0, 0, 0)')
   return state()
 }
 async function undo(kind) {
@@ -51,6 +52,15 @@ try {
   main = await connect(pages.find(page => !page.url.includes('?')))
   health = await connect(pages.find(page => page.url.includes('desktopModule=health')))
   await until(() => health(`Boolean(document.querySelector('.water-icon'))`))
+  await until(() => main(`Boolean(document.querySelector('.desktop-module.embedded'))`))
+  for (const opacity of [20, 70, 100]) {
+    await main(`window.toolbox.settings.update({desktopModuleOpacity:${opacity}})`)
+    await until(() => health(`document.querySelector('.health-panel').style.getPropertyValue('--health-alpha')==='${opacity / 100}'`))
+    assert.equal(await main(`getComputedStyle(document.querySelector('.desktop-module.embedded')).backgroundColor`), 'rgba(0, 0, 0, 0)')
+    assert.equal(await main(`getComputedStyle(document.querySelector('.desktop-module.embedded')).boxShadow`), 'none')
+    assert.equal(await health(`getComputedStyle(document.querySelector('.health-panel')).backgroundColor`), await main(`getComputedStyle(document.querySelector('.assistant-panel')).backgroundColor`))
+  }
+  checks.push('20/70/100 opacity keeps panel backgrounds equal, embedded content clear, and undo buttons transparent')
   assert.equal((await state()).state.hydration.startedAt, at(11))
   await clock(at(11, 7, 30)); await amount(28)
   assert.equal((await complete('hydration')).hydrationPlan.consumedMl, 28)

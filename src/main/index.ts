@@ -155,10 +155,13 @@ const loadRenderer = async (window: BrowserWindow, query?: Record<string, string
   } else await window.loadFile(join(__dirname, '../renderer/index.html'), query ? { query } : undefined)
 }
 
+const appIconPath = (): string => app.isPackaged ? join(process.resourcesPath, 'tray-icon.png') : join(app.getAppPath(), 'resources', 'tray-icon.png')
+
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const settings = store.data.settings
   const window = new BrowserWindow({
     ...getPanelBounds(settings),
+    icon: appIconPath(),
     minWidth: 380,
     minHeight: 420,
     show: false,
@@ -688,7 +691,7 @@ const closeAllNoteWindows = (): void => {
 
 const createTray = (): void => {
   // Windows 托盘优先使用实体 PNG；app.getAppPath() 在发布包中指向 app.asar，不能据此拼接 resources。
-  const iconPath = app.isPackaged ? join(process.resourcesPath, 'tray-icon.png') : join(app.getAppPath(), 'resources', 'tray-icon.png')
+  const iconPath = appIconPath()
   const preferredIcon = existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty()
   const fallbackIcon = nativeImage.createFromDataURL('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI5IiBmaWxsPSIjNTc3N0Q4Ii8+PHRleHQgeD0iMTYiIHk9IjIyIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXdlaWdodD0iNzAwIiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5HPC90ZXh0Pjwvc3ZnPg==')
   const trayIcon = preferredIcon.isEmpty() ? fallbackIcon : preferredIcon.resize({ width: 32, height: 32 })
@@ -1341,12 +1344,17 @@ const registerIpc = (): void => {
     if (typeof path !== 'string' || (!allowSystem && !isSafeFilesystemPath(path)) || ![...store.data.desktopItems.map(item => item.path), ...store.data.inboxItems.map(item => item.sourcePath)].includes(path)) throw new Error('请选择收纳框内的现有项目。')
     return path
   }
-  ipcMain.handle('desktop:setPinned', async (_event, path: unknown, pinned: unknown) => {
+  ipcMain.handle('desktop:setPinned', async (_event, path: unknown, pinned: unknown, targetPath?: unknown, after: unknown = false) => {
     const source = requireCollectedPath(path, true)
     if (typeof pinned !== 'boolean') throw new Error('置顶状态无效。')
+    if (typeof after !== 'boolean' || (after && targetPath === undefined)) throw new Error('置顶位置无效。')
     const data = await store.update(data => {
+      if (targetPath !== undefined && (!pinned || typeof targetPath !== 'string' || targetPath === source || !data.desktopPinnedPaths.includes(source) || !data.desktopPinnedPaths.includes(targetPath))) throw new Error('只能调整已置顶项目的顺序。')
       data.desktopPinnedPaths = data.desktopPinnedPaths.filter(path => path !== source)
-      if (pinned) data.desktopPinnedPaths.push(source)
+      if (pinned) {
+        if (typeof targetPath === 'string') data.desktopPinnedPaths.splice(data.desktopPinnedPaths.indexOf(targetPath) + Number(after), 0, source)
+        else data.desktopPinnedPaths.push(source)
+      }
     })
     broadcastData()
     return data

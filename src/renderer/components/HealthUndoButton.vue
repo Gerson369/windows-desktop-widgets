@@ -10,11 +10,11 @@ defineEmits<{ undo: [] }>()
   </button>
 </template>
 <style scoped>
-.health-undo{position:relative;display:grid;place-items:center;z-index:40;width:20px;height:20px;padding:0;border:0;border-radius:4px;background:#202a25df;color:#c5e6ce;cursor:pointer}
+.health-undo{position:relative;display:grid;place-items:center;z-index:40;width:20px;height:20px;padding:0;border:0;border-radius:4px;background:transparent;color:#c5e6ce;cursor:pointer}
 .health-undo>svg{width:12px;height:12px}
 .health-undo .undo-timer{position:absolute;inset:0;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1;pointer-events:none}
 .timer-track{opacity:.15}.timer-left{transition:stroke-dashoffset .2s linear}
-.health-undo:hover:not(:disabled){background:#344a3d}.health-undo:active:not(:disabled){background:#415e4c}
+.health-undo:hover:not(:disabled){background:#ffffff08}.health-undo:active:not(:disabled){background:#ffffff12}
 .health-undo:disabled{opacity:.5;cursor:wait}.health-undo:focus-visible{outline:2px solid #c5e6ce;outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.timer-left{transition:none}}
 </style>

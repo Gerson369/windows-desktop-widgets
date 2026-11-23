@@ -4,9 +4,9 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.8.4 · MIT 开源**
+**Windows 10 / 11 x64 · v2.8.8 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.4) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [真实界面](#真实界面) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.8) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 <table>
   <tr>
@@ -23,6 +23,7 @@
 
 | 版本 | 发布日期（北京时间） | 主要变化 |
 | --- | --- | --- |
+| v2.8.8 | 2026-11-23 | 置顶图标拖动让位，外观透明度实时联动。 |
 | v2.8.4 | 2026-11-22 | 设置底栏显示实际运行版本，窄窗口也能查看。 |
 | v2.8.3 | 2026-11-22 | 个人倒数日与节日卡片统一大小；修复专注多显示一秒；隔离测试通知。 |
 | v2.8.2 | 2026-11-21 | 设置与收纳布局更紧凑，分区操作同排，设置导航保持可见。 |
@@ -60,9 +61,9 @@
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.4/windows-desktop-widgets-2.8.4-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.4/windows-desktop-widgets-2.8.4-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.4/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/%E6%A1%8C%E9%9D%A2%E6%90%AD%E5%AD%90-2.8.8-%E5%AE%89%E8%A3%85%E7%89%88.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/%E6%A1%8C%E9%9D%A2%E6%90%AD%E5%AD%90-2.8.8-%E5%85%8D%E5%AE%89%E8%A3%85%E7%89%88.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.8/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
@@ -130,7 +131,7 @@
 ## 升级与本地数据
 
 1. 从系统托盘右键菜单选择 **退出**，等待原桌面图标恢复。收起或隐藏面板不等于退出程序。
-2. 安装新版或打开新版免安装文件，继续使用原有本地数据目录；打开设置，确认底栏显示版本2.8.4。不需要为了升级删除配置。
+2. 安装新版或打开新版免安装文件，继续使用原有本地数据目录；打开设置，确认底栏显示版本 2.8.8。不需要为了升级删除配置。
 3. 升级前如需备份，可在 **设置 → 桌面 → 数据** 导出全部数据。导入备份会替换当前配置，请先保留现有备份。
 
 待办、便签、计划、饮水记录、置顶与布局保存在本机。导出文件可能包含便签正文、文件路径和私人日历订阅地址，请妥善保管，勿提交到公共仓库。收纳分类与拖入引用不移动原文件；只有明确选择移动文件、重命名或回收站操作时才执行相应操作。
@@ -169,13 +170,11 @@ node tests/focus-timer.mjs
 
 ## 验证与反馈
 
-v2.8.4已通过152项单元与契约检查、类型检查和生产构建。300/420px设置窗口的24组切页、滚动检查通过：版本号始终可见、单行、右对齐，与保存状态不重叠。窗口验收与截图使用独立数据目录，开发宿主按Electron官方启动流程，从项目应用清单初始化版本。
-
-Windows安装包已生成；包内应用清单为2.8.4，5个构建文件与本次产物逐一一致，4个exe内嵌版本和发布清单中的文件哈希均已核对。正式包本次完成文件层面的校验，未操作个人正式窗口。
+v2.8.8 已通过 152 项单元与契约检查、类型检查和生产构建，并在实际测试窗口验证置顶拖动、滚动位置与本地文件的透明拖动预览。免安装版已启动并验证收纳窗口正常加载。
 
 v2.8.3已有151项单元与契约检查、类型检查和生产构建的通过记录；专注计时验收包含隔离主进程时钟的边界模拟，以及真实3秒自然归零，通知只记录到独立日志。其余功能沿用各图标明版本的验证记录，倒数日已知问题见上文。
 
-本次未复测完整25分钟计时、安装向导覆盖升级、真实锁屏、多屏热插拔和全天连续运行。更多结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.4)。
+本次未复测完整25分钟计时、安装向导覆盖升级、真实锁屏、多屏热插拔和全天连续运行。更多结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.8)。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

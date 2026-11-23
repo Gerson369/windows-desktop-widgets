@@ -110,13 +110,6 @@ async function scrollLayout(name) {
   assert.deepEqual(after.version.box,before.version.box)
   await evaluate(`document.querySelector('.settings-body').scrollTop=0`); await settle()
 }
-async function previewLayout() {
-  const result = await evaluate(`(()=>{const preview=document.querySelector('.appearance-preview'),grid=preview.querySelector('.preview-widgets'),widgets=[...grid.children],rect=preview.getBoundingClientRect();return {width:innerWidth,height:rect.height,columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,font:preview.style.getPropertyValue('--preview-font'),sameRow:Math.abs(widgets[0].getBoundingClientRect().top-widgets[1].getBoundingClientRect().top)<1,overflow:widgets.some(widget=>widget.scrollWidth>widget.clientWidth+1),widgets:widgets.map(widget=>({width:widget.clientWidth,scrollWidth:widget.scrollWidth,font:getComputedStyle(widget).fontSize,color:getComputedStyle(widget).color}))}})()`)
-  assert.equal(result.columns, 2); assert.equal(result.sameRow, true); assert.equal(result.overflow, false)
-  assert.ok(result.height<=180, JSON.stringify(result)); assert.equal(result.font, '20px')
-  assert.ok(result.widgets.every(widget=>widget.font==='20px' && widget.color==='rgb(232, 244, 238)'))
-  report.previews.push(result)
-}
 async function zoneLayout() {
   const result = await evaluate(`(()=>{return {width:innerWidth,rows:[...document.querySelectorAll('.compact-zone-row')].map(row=>{
     const r=row.getBoundingClientRect(),title=row.querySelector('h3'),count=row.querySelector('small');
@@ -143,13 +136,34 @@ try {
   await select('.settings-tabs', '外观')
   const oldOpacity = (await get()).settings.desktopModuleOpacity
   await input('#widget-transparency', 62, 'input')
-  assert.equal(await evaluate(`Number(document.querySelector('.appearance-preview').style.getPropertyValue('--preview-opacity'))`), 0.38)
+  await until(() => collection(`document.documentElement.style.getPropertyValue('--widget-preview-alpha')==='0.38'`))
+  assert.equal(await evaluate(`document.querySelector('.appearance-preview')`), null)
+  for (const selector of ['.settings-panel', '.appearance-controls', '.assistant-header', '.settings-save-status']) {
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`), 'rgba(0, 0, 0, 0)')
+  }
+  const liveBackground = await evaluate(`getComputedStyle(document.querySelector('.assistant-panel')).backgroundColor`)
+  assert.equal(await collection(`getComputedStyle(document.querySelector('.desktop-collection')).backgroundColor`), liveBackground)
   assert.equal((await get()).settings.desktopModuleOpacity, oldOpacity)
+  for (const transparency of [20, 85, 40, 62]) {
+    await input('#widget-transparency', transparency, 'input')
+    const alpha = String((100 - transparency) / 100)
+    await until(() => collection(`document.documentElement.style.getPropertyValue('--widget-preview-alpha')===${JSON.stringify(alpha)}`))
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.assistant-panel')).backgroundColor`), await collection(`getComputedStyle(document.querySelector('.desktop-collection')).backgroundColor`))
+    assert.equal((await get()).settings.desktopModuleOpacity, oldOpacity)
+  }
   await input('#widget-transparency', 62)
   await until(async () => (await get()).settings.desktopModuleOpacity===38)
-  for (const [label, value, field, variable] of [['组件背景颜色','#25312b','background','--preview-background'],['组件文字颜色','#e8f4ee','textColor','--preview-text'],['组件字号',20,'fontSize','--preview-font']]) {
+  await until(() => collection(`document.documentElement.style.getPropertyValue('--widget-preview-alpha')===''`))
+  await fs.writeFile(path.join(directory, 'fail-store-write'), 'fail once')
+  await input('#widget-transparency', 50, 'input'); await input('#widget-transparency', 50)
+  await until(() => evaluate(`document.querySelector('.appearance-controls [role=alert]')?.textContent.includes('磁盘写入失败')`))
+  assert.equal((await get()).settings.desktopModuleOpacity, 38)
+  assert.equal(await collection(`document.documentElement.style.getPropertyValue('--widget-preview-alpha')`), '0.5')
+  await clickText('.appearance-controls button', '重试')
+  await until(async () => (await get()).settings.desktopModuleOpacity===50)
+  await until(() => collection(`document.documentElement.style.getPropertyValue('--widget-preview-alpha')===''`))
+  for (const [label, value, field] of [['组件背景颜色','#25312b','background'],['组件文字颜色','#e8f4ee','textColor'],['组件字号',20,'fontSize']]) {
     await input(`[aria-label="${label}"]`, value, 'input')
-    assert.equal(await evaluate(`document.querySelector('.appearance-preview').style.getPropertyValue(${JSON.stringify(variable)})`), field==='fontSize' ? `${value}px` : value)
     await input(`[aria-label="${label}"]`, value)
     await until(async () => String((await get()).suite[field])===String(value))
   }
@@ -174,7 +188,7 @@ try {
     await resize('todos', width)
     for (const section of ['健康', '外观']) {
       await select('.settings-tabs', section); await scrollLayout(section)
-      if (section==='外观') await previewLayout()
+
     }
     await select('.settings-tabs', '桌面')
     for (const group of ['组件', '收纳', '备份', '数据']) {
@@ -193,7 +207,7 @@ try {
   }
   report.checks.push('300/420px keep three primary pages and all four desktop groups within width; both navigation rows remain fixed, clickable and unobscured during scrolling')
   report.checks.push('runtime version matches the application manifest and stays visible, single-line and right-aligned beside the save status across tabs and scrolling at 300/420px')
-  report.checks.push('20px previews keep two columns within 180px; seven expanded zones use a single compact row with counts and controls aligned')
+  report.checks.push('Appearance controls fit without a sample card; seven expanded zones use a single compact row with counts and controls aligned')
 
   await select('.desktop-settings-tabs', '收纳')
   const zoneSelector='[aria-label="显示分区：工作文档与日常资料整理"]'
