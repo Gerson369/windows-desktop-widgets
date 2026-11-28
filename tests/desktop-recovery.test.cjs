@@ -1,6 +1,15 @@
 const test=require('node:test')
 const assert=require('node:assert/strict')
 const {loadTypeScript}=require('./load-typescript.cjs')
+test('widget shape cuts all four corners and keeps the full middle after collapse or resize',()=>{
+  const {roundedWidgetShape}=loadTypeScript('src/main/widget-window-shape.ts')
+  for(const [width,height] of [[300,42],[300,80],[420,650]]){
+    const shape=roundedWidgetShape(width,height)
+    const includes=(x,y)=>shape.some(row=>x>=row.x && x<row.x+row.width && y>=row.y && y<row.y+row.height)
+    for(const x of [0,width-1])for(const y of [0,height-1])assert.equal(includes(x,y),false)
+    for(const [x,y] of [[0,20],[width-1,20],[width/2,0],[width/2,height-1]])assert.equal(includes(x,y),true)
+  }
+})
 function recovery(failure){
   const calls=[]
   const host=loadTypeScript('src/main/desktop-host.ts',{

@@ -1,6 +1,6 @@
 {
   "name": "gerson-desktop-toolbox",
-  "version": "2.8.8",
+  "version": "2.8.10",
   "description": "桌面搭子：整理桌面、记下待办，到点提醒喝水和活动",
   "main": "out/main/index.js",
   "author": "Gerson",

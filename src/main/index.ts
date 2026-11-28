@@ -15,6 +15,7 @@ import { store } from './store'
 import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInventory, desktopCoverageProblems, migrateDesktopCollection, placeStartupWidgets, desktopItemTargetZone } from './desktop-widgets'
 import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea, type WidgetResizeEdge } from './widget-snap'
 import { dockedWidgetBounds, findWidgetDock, fitDockedParent } from './widget-docking'
+import { bindRoundedWidgetShape } from './widget-window-shape'
 import { normalizeCollectionSorts, normalizeCollectionRules, type CollectionProgress } from './desktop-collection'
 import { dueTodoReminders, validateTodoReminder } from './todo-reminders'
 import { renameCollectedFile } from './file-rename'
@@ -180,6 +181,7 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     }
   })
   window.setOpacity(1)
+  bindRoundedWidgetShape(window)
   window.on('close', (event) => {
     if (!quitting) {
       event.preventDefault()
@@ -389,6 +391,7 @@ const refreshDesktopModules = async (): Promise<void> => {
         webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
       })
       desktopModuleWindows.set(module.id, window)
+      bindRoundedWidgetShape(window)
       hardenRendererWindow(window)
       const moduleId = module.id
       bindDesktopWidgetMovement(moduleId, window, applyingDesktopModuleBounds, () => persistDesktopModuleBounds(moduleId, window!))
