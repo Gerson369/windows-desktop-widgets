@@ -58,7 +58,17 @@ ipcMain.handle=(channel,listener)=>{
    if(item){if(item.testFailure)throw Error(item.testFailure);fs.writeFileSync(collectionFixture,JSON.stringify(items.filter(candidate=>candidate.path!==item.path)));return withCollection(await readData(args[0]))}
   }
   const fixturePath=path.join(process.env.GERSON_E2E_DATA_DIRECTORY,'service-fixtures.json')
-  if(fs.existsSync(fixturePath)){const fixtures=JSON.parse(fs.readFileSync(fixturePath,'utf8'));if(channel==='suite:metrics' && fixtures.metrics)return fixtures.metrics;if(channel==='suite:weather' && fixtures.weather?.[args[1]])return fixtures.weather[args[1]]}
+  if(fs.existsSync(fixturePath)){
+   const fixtures=JSON.parse(fs.readFileSync(fixturePath,'utf8'))
+   if(channel==='suite:metrics' && fixtures.metrics)return fixtures.metrics
+   if(channel==='suite:weather' && fixtures.weather?.[args[1]])return fixtures.weather[args[1]]
+   if(channel==='app-update:check' && fixtures.updateCheck)return fixtures.updateCheck
+   if(channel==='app-update:install' && fixtures.updateInstall){
+    args[0].sender.send('app-update:progress',42)
+    await new Promise(resolve=>setTimeout(resolve,600))
+    return fixtures.updateInstall
+   }
+  }
   if(channel==='settings:update' && fs.existsSync(failSave)){fs.unlinkSync(failSave);throw Error('测试保存失败，请重试')}
   if(channel==='entity:upsert' && args[1]==='todos' && Object.hasOwn(args[2],'reminderAt')){
     const delay=path.join(testDirectory,'delay-reminder-save')

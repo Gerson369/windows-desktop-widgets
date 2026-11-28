@@ -4,9 +4,9 @@
 
 桌面搭子是 Windows 桌面工具箱，把文件收纳、待办、日历、节日倒数和喝水活动提醒放进几个小面板。常用项目可以置顶后双击打开，面板可拖动、收起和吸附，数据保存在本机。
 
-**Windows 10 / 11 x64 · v2.8.10 · MIT 开源**
+**Windows 10 / 11 x64 · v2.9.0 · MIT 开源**
 
-[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [画面截图](#画面截图) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.10) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
+[下载最新版](https://github.com/Gerson369/windows-desktop-widgets/releases/latest) · [快速上手](#快速上手) · [画面截图](#画面截图) · [更新日志](CHANGELOG.md) · [本次说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.9.0) · [反馈问题](https://github.com/Gerson369/windows-desktop-widgets/issues)
 
 ## 画面截图
 
@@ -38,6 +38,7 @@
 
 | 版本 | 发布日期（北京时间） | 主要变化 |
 | --- | --- | --- |
+| v2.9.0 | 2026-11-28 | 设置底栏新增「检查更新」，可直接下载并更新当前使用的安装版或免安装版。 |
 | v2.8.10 | 2026-11-28 | 修复桌面搭子、桌面收纳和喝水与活动面板四角露出黑块的问题。 |
 | v2.8.8 | 2026-11-23 | 置顶图标拖动让位，外观透明度实时联动。 |
 | v2.8.4 | 2026-11-22 | 设置底栏显示实际运行版本，窄窗口也能查看。 |
@@ -71,15 +72,15 @@
 
 希望开机就能用，可在 **设置 → 桌面 → 组件** 开启“开机启动”。点击系统托盘中的“桌面搭子”图标可以重新显示面板。
 
-查看当前软件版本：打开 **设置**，在底栏右侧查看“版本 x.y.z”。
+打开 **设置**，可以在底栏查看当前版本，也可以点击 **检查更新**。发现新版后，点击更新按钮，软件会下载与你当前版本类型对应的文件并校验完整性。安装版会打开安装向导，免安装版会原位替换并重新打开。
 
 ## 下载与安装
 
 | 版本 | 下载 | 适合谁 |
 | --- | --- | --- |
-| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.10/windows-desktop-widgets-2.8.10-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
-| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.10/windows-desktop-widgets-2.8.10-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.8.10/SHA256SUMS.txt) | 核对下载文件是否完整。 |
+| 安装版 | [Windows x64 安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.9.0/windows-desktop-widgets-2.9.0-x64-setup.exe) | 长期在这台电脑使用，按安装向导操作。 |
+| 免安装版 | [Windows x64 免安装版](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.9.0/windows-desktop-widgets-2.9.0-x64-portable.exe) | 下载后直接运行，不经过安装向导。 |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/Gerson369/windows-desktop-widgets/releases/download/v2.9.0/SHA256SUMS.txt) | 核对下载文件是否完整。 |
 
 两种版本功能相同，沿用已有本地数据目录与配置格式。免安装版的数据也按应用设置保存在本机，不会自动随 exe 文件移动。软件未配置代码签名，Windows 可能显示发布者提示。
 
@@ -114,7 +115,7 @@
 ## 升级与本地数据
 
 1. 从系统托盘右键菜单选择 **退出**，等待原桌面图标恢复。收起或隐藏面板不等于退出程序。
-2. 安装新版或打开新版免安装文件，打开设置，确认底栏显示版本 2.8.10。新版会沿用已有的本地数据和配置。
+2. 从 v2.8.x 首次升级时，手动安装或打开 v2.9.0，在设置底栏确认版本。从 v2.9.0 起，可直接在设置中检查后续更新。升级沿用已有的本地数据和配置。
 3. 升级前如需备份，可在 **设置 → 桌面 → 数据** 导出全部数据。导入备份会替换当前配置，请先保留现有备份。
 
 待办、便签、计划、饮水记录、置顶与布局保存在本机。导出文件可能包含便签正文、文件路径和私人日历订阅地址，请妥善保管，勿提交到公共仓库。收纳分类与拖入引用不移动原文件；只有明确选择移动文件、重命名或回收站操作时才执行相应操作。
@@ -153,11 +154,11 @@ node tests/focus-timer.mjs
 
 ## 验证与反馈
 
-v2.8.10 已通过 153 项自动检查、类型检查和生产构建。在 Windows 上验证了三个组件调整大小前后的四个圆角，并确认免安装版能打开三个组件。
+v2.9.0 已通过 162 项自动检查、类型检查和 Windows 生产构建。已在实际设置窗口检查 GitHub 版本，并验证了官方发布包的完整下载和校验。在隔离的 Windows 进程中验证了两种版本的更新交接和免安装版启动失败回滚。
 
 v2.8.3已有151项单元与契约检查、类型检查和生产构建的通过记录；专注计时验收包含隔离主进程时钟的边界模拟，以及真实3秒自然归零，通知只记录到独立日志。其余功能沿用各图标明版本的验证记录，倒数日已知问题见上文。
 
-本次未实测跨显示器移动和安装向导覆盖升级。更多结果见[当前版本更新说明](https://github.com/Gerson369/windows-desktop-widgets/releases/tag/v2.8.10)。
+各版本的验证范围见[更新日志](CHANGELOG.md)。
 
 遇到问题请在[Issues](https://github.com/Gerson369/windows-desktop-widgets/issues)提供Windows版本、软件版本、操作步骤、预期与实际结果，并附必要截图。截图和附件请先检查是否含私人内容，不要上传完整个人配置。
 

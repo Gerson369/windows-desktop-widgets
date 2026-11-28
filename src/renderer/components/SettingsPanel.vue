@@ -4,6 +4,7 @@ import { toolbox } from '../toolbox'
 import { createSaveQueue } from '../save-queue'
 import { collectionCategories, type CollectionCategory } from '../../main/desktop-collection'
 import type { AppData, AppSettings } from '../../main/types'
+import type { AppUpdateResult } from '../../shared/app-update'
 import SuiteSettings from './SuiteSettings.vue'
 import HydrationPlanSettings from './HydrationPlanSettings.vue'
 import OrganizerCenter from './OrganizerCenter.vue'
@@ -16,6 +17,41 @@ const props = defineProps<{ section?: string }>()
 const emit = defineEmits<{ section: [value: string]; return: [] }>()
 const data = ref<AppData | null>(null)
 const appVersion = ref('读取中…')
+const updateResult = ref<AppUpdateResult>()
+const updatePending = ref<'check' | 'install' | null>(null)
+const downloadPercent = ref(0)
+const updateLocked = computed(() => !!updatePending.value || updateResult.value?.status === 'installing')
+const updateButton = computed(() => {
+  if (updatePending.value === 'install') return '下载中…'
+  if (updatePending.value === 'check') return '检查中…'
+  if (updateResult.value?.status === 'available') return '下载并更新'
+  if (updateResult.value?.status === 'installing') return '更新中…'
+  if (updateResult.value?.status === 'error') return '重新检查'
+  return '检查更新'
+})
+const updateMessage = computed(() => {
+  if (updatePending.value === 'install') return downloadPercent.value === 100 ? '下载完成，正在校验更新包…' : `正在下载更新包 ${downloadPercent.value}%`
+  if (updatePending.value === 'check') return '正在检查新版本…'
+  const result = updateResult.value
+  if (!result) return ''
+  if (result.status === 'available') return `发现新版本 ${result.version}。确认更新后，下载完成时将退出当前应用。`
+  if (result.status === 'current') return '已是最新版本。'
+  if (result.status === 'installing') return '下载完成，正在启动更新…'
+  return result.message || '检查更新失败，请重试。'
+})
+async function handleUpdate() {
+  if (updateLocked.value) return
+  const action = updateResult.value?.status === 'available' ? 'install' : 'check'
+  downloadPercent.value = 0
+  updatePending.value = action
+  try {
+    updateResult.value = await api.appUpdate[action]()
+  } catch (error) {
+    updateResult.value = { status: 'error', message: error instanceof Error ? error.message : '更新服务暂时不可用，请重试。' }
+  } finally {
+    updatePending.value = null
+  }
+}
 const statuses = reactive<Record<string, string>>({ 设置: '正在加载设置…' })
 const lastMessage = ref('正在加载设置…')
 const message = computed({
@@ -36,6 +72,7 @@ const ruleExtensions = ref(''), ruleTab = ref<CollectionCategory>('files')
 const sections = [{ id: 'health', label: '健康' }, { id: 'appearance', label: '外观' }, { id: 'desktop', label: '桌面' }]
 const desktopTabs = [{ id: 'components', label: '组件' }, { id: 'organizer', label: '收纳' }, { id: 'backups', label: '备份' }, { id: 'data', label: '数据' }]
 let dispose: (() => void) | undefined
+let stopUpdateProgress: (() => void) | undefined
 let saveRevision = 0
 
 function selectSection(value: string) { section.value = value; emit('section', value) }
@@ -83,11 +120,12 @@ function backupDate(value: string) {
   return new Date(value).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 onMounted(async () => {
+  stopUpdateProgress = api.appUpdate.onProgress(percent => { downloadPercent.value = percent })
   void api.system.version().then(version => { appVersion.value = version }).catch(() => { appVersion.value = '读取失败' })
   try { data.value = await api.data.get(); dispose = api.data.onChanged(next => { data.value = next }); message.value = '已保存' }
   catch (reason) { message.value = '加载失败：' + String(reason) }
 })
-onBeforeUnmount(() => dispose?.())
+onBeforeUnmount(() => { dispose?.(); stopUpdateProgress?.() })
 </script>
 <template>
   <section class="settings-panel" :class="{ 'is-appearance': section === 'appearance' }" aria-label="助手设置">
@@ -151,8 +189,11 @@ onBeforeUnmount(() => dispose?.())
       </section>
     </div>
     <p v-else class="settings-loading">正在加载设置…</p>
+    <p v-if="updateMessage" class="settings-update-message" :class="{ 'settings-error': updateResult?.status === 'error' && !updatePending }" role="status">{{ updateMessage }}</p>
     <footer class="settings-save-status" :class="{ 'has-error': /失败|未保存/.test(displayMessage) }" role="status" aria-live="polite">
-      <AssistantIcon :name="/失败|未保存/.test(displayMessage) ? 'bell' : 'check'"/><span>{{ displayMessage }}</span><button v-if="retry" class="settings-link" :disabled="busy" @click="perform(retry!)">重试</button><small class="settings-version" title="当前运行版本">版本 {{ appVersion }}</small>
+      <AssistantIcon :name="/失败|未保存/.test(displayMessage) ? 'bell' : 'check'"/><span>{{ displayMessage }}</span><button v-if="retry" class="settings-link" :disabled="busy" @click="perform(retry!)">重试</button>
+      <button type="button" class="settings-link settings-update-button" :disabled="updateLocked" @click="handleUpdate">{{ updateButton }}</button>
+      <small class="settings-version" title="当前运行版本">版本 {{ appVersion }}</small>
     </footer>
   </section>
 </template>

@@ -20,7 +20,7 @@ const sourceFiles = includeDirectories.flatMap((directory) => filesUnder(path.jo
   .filter((file) => /\.(?:ts|vue|js|cjs|json|cs|ps1|cmd)$/i.test(file))
 const read = (file) => fs.readFileSync(file, 'utf8')
 const preload = read(path.join(root, 'src/preload/index.ts'))
-const main = read(path.join(root, 'src/main/index.ts'))
+const main = ['src/main/index.ts', 'src/main/app-update-ipc.ts'].map(file => read(path.join(root, file))).join('\n')
 const invocationPattern = /invoke(?:<[^\n]*>)?\('([^']+)'/g
 const handlerPattern = /ipcMain\.handle\('([^']+)'/g
 const invoked = new Set([...preload.matchAll(invocationPattern)].map((match) => match[1]))

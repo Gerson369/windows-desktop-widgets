@@ -16,6 +16,7 @@ import { synchronizeDesktopGroups, selectVisibleDesktopItems, canReuseDesktopInv
 import { snapWidgetBounds, snapResizedWidgetBounds, draggedWidgetBounds, fitWidgetToWorkArea, type WidgetResizeEdge } from './widget-snap'
 import { dockedWidgetBounds, findWidgetDock, fitDockedParent } from './widget-docking'
 import { bindRoundedWidgetShape } from './widget-window-shape'
+import { registerAppUpdates } from './app-update-ipc'
 import { normalizeCollectionSorts, normalizeCollectionRules, type CollectionProgress } from './desktop-collection'
 import { dueTodoReminders, validateTodoReminder } from './todo-reminders'
 import { renameCollectedFile } from './file-rename'
@@ -1157,6 +1158,15 @@ const requestSearchAuthorization = async (): Promise<boolean> => {
 }
 
 const registerIpc = (): void => {
+  registerAppUpdates(
+    event => [mainWindow, desktopModuleWindows.get('todos')].some(window => window?.webContents === event.sender),
+    restoreDesktopForQuit,
+    () => {
+      desktopReleased = false
+      desktopReleasePending = false
+      if (store.data.settings.desktopCollected) void collectAtStartup()
+    }
+  )
   ipcMain.handle('suite:save', async (_event, patch: unknown) => {
     if(!patch || typeof patch!=='object' || Array.isArray(patch)) throw new Error('组件配置无效。')
     const source=patch as Partial<WidgetSuite>
@@ -2090,14 +2100,25 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => undefined)
 
+async function restoreDesktopForQuit(): Promise<void> {
+  if (desktopReleased) return
+  if (desktopReleasePending) throw new Error('桌面正在恢复，请稍后重试。')
+  desktopReleasePending = true
+  if (desktopRecoveryTimer) clearTimeout(desktopRecoveryTimer)
+  try {
+    if (!skipTestDesktop) await releaseDesktop()
+    desktopReleased = true
+  } catch (error) {
+    desktopReleasePending = false
+    throw error
+  }
+}
+
 app.on('before-quit', (event) => {
   if (!desktopReleased) {
     event.preventDefault()
     if (!desktopReleasePending) {
-      desktopReleasePending = true
-      if (desktopRecoveryTimer) clearTimeout(desktopRecoveryTimer)
-      void (skipTestDesktop ? Promise.resolve() : releaseDesktop()).then(() => { desktopReleased = true; app.quit() }).catch(error => {
-        desktopReleasePending=false
+      void restoreDesktopForQuit().then(() => app.quit()).catch(error => {
         console.error('[退出恢复]',error)
         new Notification({title:'桌面图标恢复未完成，软件暂未退出',body:'请再次尝试退出，或在桌面右键菜单中开启显示桌面图标。'}).show()
       })

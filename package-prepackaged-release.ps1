@@ -34,6 +34,7 @@ Move-Item -LiteralPath (Join-Path $prepackaged 'electron.exe') -Destination (Joi
 
 $resources = Join-Path $prepackaged 'resources'
 New-Item -ItemType Directory -Path (Join-Path $resources 'native') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $source 'native\UpdateHelper\GersonUpdateHelper.exe') -Destination (Join-Path $resources 'native\GersonUpdateHelper.exe')
 Copy-Item -LiteralPath (Join-Path $source 'native\DesktopLayoutBridge\GersonDesktopLayoutBridge.exe') -Destination (Join-Path $resources 'native\GersonDesktopLayoutBridge.exe')
 Copy-Item -LiteralPath (Join-Path $source 'native\DesktopHostBridge\GersonDesktopHostBridge.exe') -Destination (Join-Path $resources 'native\GersonDesktopHostBridge.exe')
 Copy-Item -LiteralPath (Join-Path $source 'resources\tray-icon.png') -Destination (Join-Path $resources 'tray-icon.png')

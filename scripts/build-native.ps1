@@ -7,3 +7,8 @@ try {
   & $compiler /nologo /target:exe /platform:x64 /reference:System.Web.Extensions.dll /out:GersonDesktopLayoutBridge.exe LegacyProgram.cs
   if ($LASTEXITCODE -ne 0) { throw 'Desktop layout bridge build failed.' }
 } finally { Pop-Location }
+Push-Location -LiteralPath (Join-Path $projectRoot 'native\UpdateHelper')
+try {
+  & $compiler /nologo /target:winexe /platform:x64 /reference:System.Windows.Forms.dll /out:GersonUpdateHelper.exe Program.cs
+  if ($LASTEXITCODE -ne 0) { throw 'Windows update helper build failed.' }
+} finally { Pop-Location }

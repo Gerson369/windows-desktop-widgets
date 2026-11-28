@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { AppUpdateResult } from '../shared/app-update'
 import type { AppData, AppSettings, BatchRenamePlan, DesktopIconArrangePlan, DesktopScanResult, DesktopZone, FileFilters, InboxItem, OrganizerPlan, RecentFile } from '../main/types'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args).catch(error => {
@@ -7,6 +8,15 @@ const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRender
 })
 
 const toolbox = {
+  appUpdate: {
+    check: () => invoke<AppUpdateResult>('app-update:check'),
+    install: () => invoke<AppUpdateResult>('app-update:install'),
+    onProgress: (callback: (percent: number) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, percent: number) => callback(percent)
+      ipcRenderer.on('app-update:progress', listener)
+      return () => ipcRenderer.removeListener('app-update:progress', listener)
+    }
+  },
   suite: {
     save: (patch: Partial<import('../main/widget-suite').WidgetSuite>) => invoke<AppData>('suite:save', patch),
     focus: (action: 'start'|'pause'|'reset', seconds?: number) => invoke<AppData>('suite:focus', action, seconds),
